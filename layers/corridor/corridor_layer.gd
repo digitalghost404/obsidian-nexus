@@ -12,10 +12,8 @@ func _ready() -> void:
 
 func build_corridor(note_id: String) -> void:
 	current_note_id = note_id
-	# Clear existing corridor geometry (keep environment nodes)
+	# Clear existing corridor geometry
 	for child in get_children():
-		if child is WorldEnvironment or child is DirectionalLight3D:
-			continue
 		child.queue_free()
 
 	var note = VaultDataBus.graph.get_note(note_id)
