@@ -14,7 +14,9 @@ func _ready() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	_mouse_captured = true
 	camera.position.y = camera_height
+	camera.current = true
 	_spawn_frames = 0
+	print("PlayerCamera: ready, camera.current=%s" % str(camera.current))
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion and _mouse_captured:

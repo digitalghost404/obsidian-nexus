@@ -12,6 +12,7 @@ var _mouse_captured: bool = false
 func _ready() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	_mouse_captured = true
+	current = true
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion and _mouse_captured:
