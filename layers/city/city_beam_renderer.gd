@@ -16,24 +16,25 @@ func _ready() -> void:
 	_material.vertex_color_use_as_albedo = true
 	add_child(_mesh_instance)
 
-func build_beams(tower_positions: Dictionary, graph) -> void:
+func build_beams(tower_positions: Dictionary, graph: NoteGraph) -> void:
 	_mesh.clear_surfaces()
 	_mesh.surface_begin(Mesh.PRIMITIVE_LINES)
 
 	for note_id in tower_positions:
-		var note = graph.get_note(note_id)
+		var note: RefCounted = graph.get_note(note_id)
 		if not note:
 			continue
 		var from_pos: Vector3 = tower_positions[note_id]
-		for link in note.outgoing_links:
+		var links: Array = note.outgoing_links
+		for link in links:
 			if tower_positions.has(link):
 				var to_pos: Vector3 = tower_positions[link]
-				var mid_y := maxf(from_pos.y, to_pos.y) + 5.0
-				var mid_pos := (from_pos + to_pos) / 2.0
+				var mid_y: float = maxf(from_pos.y, to_pos.y) + 5.0
+				var mid_pos: Vector3 = (from_pos + to_pos) / 2.0
 				mid_pos.y = mid_y
 
 				var temp: float = clampf((graph.get_connection_count(note_id) + graph.get_connection_count(link)) / 50.0, 0.0, 1.0)
-				var beam_color := Color(0.32, 0.4, 0.93, 0.15).lerp(Color(0.98, 0.58, 0.09, 0.3), temp)
+				var beam_color: Color = Color(0.32, 0.4, 0.93, 0.15).lerp(Color(0.98, 0.58, 0.09, 0.3), temp)
 
 				_mesh.surface_set_color(beam_color)
 				_mesh.surface_add_vertex(from_pos)

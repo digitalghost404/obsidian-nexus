@@ -32,7 +32,7 @@ static func build_tower(note: VaultParser.NoteData, connection_count: int, posit
 	root.add_child(mesh_instance)
 
 	# ---- HEX GRID on body — subtle circuit pattern ----
-	var hex_shader = load("res://shaders/hex_grid.gdshader")
+	var hex_shader: Resource = load("res://shaders/hex_grid.gdshader")
 	if hex_shader:
 		var overlay := MeshInstance3D.new()
 		var overlay_box := BoxMesh.new()
@@ -61,6 +61,18 @@ static func build_tower(note: VaultParser.NoteData, connection_count: int, posit
 	cap_mat.emission_energy_multiplier = edge_strength * 1.2
 	cap.set_surface_override_material(0, cap_mat)
 	root.add_child(cap)
+
+	# ---- TOWER LABEL: note title above the cap ----
+	var label: Label3D = Label3D.new()
+	label.text = note.title
+	label.font_size = 16
+	label.modulate = Color(0.75, 0.8, 0.95, 0.6)
+	label.position = Vector3(position_2d.x, height + 0.4, position_2d.y)
+	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	label.no_depth_test = false
+	label.outline_size = 4
+	label.outline_modulate = Color(0.0, 0.0, 0.0, 0.3)
+	root.add_child(label)
 
 	# ---- EDGE GLOW: 4 vertical strips on corners ----
 	var strip_w := 0.035
