@@ -4,6 +4,10 @@ var hover_panel: PanelContainer
 var note_viewer: Control
 var _crosshair: ColorRect
 var _viewer_open: bool = false
+var ai_response_panel: Control
+var listening_indicator: Control
+var ai_status_bar: Control
+var _observation_label: Label
 
 func _ready() -> void:
 	layer = 5
@@ -46,6 +50,49 @@ func _ready() -> void:
 	InputManager.search_requested.connect(_on_search_requested)
 	InputManager.tag_filter_requested.connect(_on_tag_filter_requested)
 
+	# AI Response Panel
+	var ai_panel_scene: PackedScene = load("res://ui/ai_response_panel.tscn") as PackedScene
+	if ai_panel_scene:
+		ai_response_panel = ai_panel_scene.instantiate()
+		add_child(ai_response_panel)
+		ai_response_panel.update_layout(get_viewport().get_visible_rect().size)
+
+	# Listening Indicator
+	var indicator_script: GDScript = load("res://ui/listening_indicator.gd") as GDScript
+	if indicator_script:
+		listening_indicator = Control.new()
+		listening_indicator.set_script(indicator_script)
+		listening_indicator.name = "ListeningIndicator"
+		add_child(listening_indicator)
+
+	# AI Status Bar — positioned above the minimap
+	var status_bar_script: GDScript = load("res://ui/ai_status_bar.gd") as GDScript
+	if status_bar_script:
+		ai_status_bar = HBoxContainer.new()
+		ai_status_bar.set_script(status_bar_script)
+		ai_status_bar.name = "AIStatusBar"
+		var vp_size: Vector2 = get_viewport().get_visible_rect().size
+		ai_status_bar.position = Vector2(15, vp_size.y - 180)
+		add_child(ai_status_bar)
+
+	# AI Observation floating text
+	_observation_label = Label.new()
+	_observation_label.name = "ObservationLabel"
+	_observation_label.add_theme_font_size_override("font_size", 13)
+	_observation_label.add_theme_color_override("font_color", Color(0.5, 0.7, 1.0, 0.0))
+	_observation_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_observation_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	var obs_vp_size: Vector2 = get_viewport().get_visible_rect().size
+	_observation_label.position = Vector2(obs_vp_size.x * 0.25, obs_vp_size.y * 0.15)
+	_observation_label.size = Vector2(obs_vp_size.x * 0.5, 60)
+	_observation_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_observation_label)
+	_observation_label.hide()
+
+	# Connect AI observation signal
+	if NexusAI:
+		NexusAI.ai_observation.connect(_on_ai_observation)
+
 func _process(_delta: float) -> void:
 	# Update minimap player position
 	var minimap = get_node_or_null("Minimap")
@@ -62,6 +109,10 @@ func _process(_delta: float) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed:
 		if event.keycode == KEY_ESCAPE or event.keycode == KEY_Q:
+			if ai_response_panel and ai_response_panel.visible:
+				ai_response_panel.dismiss()
+				get_viewport().set_input_as_handled()
+				return
 			if _viewer_open:
 				_close_viewer()
 				get_viewport().set_input_as_handled()
@@ -411,4 +462,19 @@ func _on_tag_filter_requested() -> void:
 				LayerManager.current_scene.highlight_notes(ids)
 		tag_dialog.queue_free()
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	)
+
+func _on_ai_observation(text: String) -> void:
+	_observation_label.text = text
+	_observation_label.add_theme_color_override("font_color", Color(0.5, 0.7, 1.0, 0.9))
+	_observation_label.show()
+	AudioManager.play_sfx("ai_chime")
+
+	# Fade out over 8 seconds
+	var tween := create_tween()
+	tween.tween_interval(5.0)  # Stay visible for 5 seconds
+	tween.tween_property(_observation_label, "modulate", Color(1, 1, 1, 0), 3.0)
+	tween.tween_callback(func():
+		_observation_label.hide()
+		_observation_label.modulate = Color(1, 1, 1, 1)
 	)

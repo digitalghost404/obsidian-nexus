@@ -12,6 +12,18 @@ const PULSE_INTERVAL := 3.0
 const PULSE_SPEED := 25.0
 const PULSE_MAX_RADIUS := 60.0
 
+# ─── AI State Visual Feedback ────────────────────────────────────
+var _ai_state: int = 0  # NexusAI.State.IDLE
+var _core_mesh_instance: MeshInstance3D  # Reference to the main inner core
+var _core_base_emission: float = 5.0
+var _ring_base_speeds: Array[float] = [0.25, -0.35, 0.2, -0.45, 0.3]
+var _ring_speed_multiplier: float = 1.0
+var _scanner_active: bool = true
+var _query_beams: Array[MeshInstance3D] = []
+var _query_beam_fade_timer: float = 0.0
+const QUERY_BEAM_FADE_DURATION: float = 5.0
+var _thinking_particles: GPUParticles3D
+
 func _ready() -> void:
 	_build_hub()
 
@@ -426,6 +438,12 @@ func _build_hub() -> void:
 	stats_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	add_child(stats_label)
 
+	# Store reference to core for AI state feedback
+	_core_mesh_instance = core
+
+	# Connect to NexusAI signals (deferred to ensure NexusAI is ready)
+	call_deferred("_connect_ai_signals")
+
 	# ========================================
 	# COLLISION
 	# ========================================
@@ -442,11 +460,10 @@ func _build_hub() -> void:
 	add_child(body)
 
 func _process(delta: float) -> void:
-	# Rotate all rings at their configured speeds
-	var speeds := [0.25, -0.35, 0.2, -0.45, 0.3]
+	# Rotate all rings at configured speeds, modified by AI state
 	for i in range(_rings.size()):
-		if i < speeds.size():
-			_rings[i].rotate_y(delta * speeds[i])
+		if i < _ring_base_speeds.size():
+			_rings[i].rotate_y(delta * _ring_base_speeds[i] * _ring_speed_multiplier)
 
 	# Slowly orbit the holographic panels
 	for i in range(_hologram_panels.size()):
@@ -456,13 +473,37 @@ func _process(delta: float) -> void:
 		# Bob up and down slightly
 		panel.position.y += sin(Time.get_ticks_msec() * 0.001 + float(i)) * delta * 0.3
 
-	# Rotate scanner beams
-	var scanner = get_node_or_null("ScannerBeam")
-	if scanner:
-		scanner.rotate_y(delta * 0.4)
-	var scanner2 = get_node_or_null("ScannerBeam2")
-	if scanner2:
-		scanner2.rotate_y(-delta * 0.25)
+	# Rotate scanner beams (stopped during LISTENING state)
+	if _scanner_active:
+		var scanner = get_node_or_null("ScannerBeam")
+		if scanner:
+			scanner.rotate_y(delta * 0.4)
+		var scanner2 = get_node_or_null("ScannerBeam2")
+		if scanner2:
+			scanner2.rotate_y(-delta * 0.25)
+
+	# Fade query beams after response completes
+	if _query_beam_fade_timer > 0:
+		_query_beam_fade_timer -= delta
+		var alpha_factor: float = _query_beam_fade_timer / QUERY_BEAM_FADE_DURATION
+		for beam in _query_beams:
+			if is_instance_valid(beam):
+				var mat: StandardMaterial3D = beam.get_surface_override_material(0)
+				if mat:
+					mat.albedo_color.a = 0.6 * alpha_factor
+					mat.emission_energy_multiplier = 5.0 * alpha_factor
+		if _query_beam_fade_timer <= 0:
+			_clear_query_beams()
+
+	# Pulse core emission during SPEAKING state synced to audio amplitude
+	if _ai_state == NexusAI.State.SPEAKING and _core_mesh_instance:
+		var tts_player: AudioStreamPlayer = NexusAI.get_tts_player()
+		if tts_player and tts_player.playing:
+			# Approximate amplitude from playback position timing
+			var wobble: float = sin(Time.get_ticks_msec() * 0.008) * 0.3
+			var mat: StandardMaterial3D = _core_mesh_instance.get_surface_override_material(0)
+			if mat:
+				mat.emission_energy_multiplier = _core_base_emission + wobble * _core_base_emission
 
 	# Energy pulse waves
 	_pulse_timer += delta
@@ -477,10 +518,12 @@ func _process(delta: float) -> void:
 		var current_radius: float = ring.get_meta("radius", 1.0)
 		current_radius += PULSE_SPEED * delta
 		ring.set_meta("radius", current_radius)
-		# Update torus size
+		# Update torus size — set outer FIRST to avoid inner==outer during update
 		var tmesh := ring.mesh as TorusMesh
-		tmesh.inner_radius = current_radius - 0.15
-		tmesh.outer_radius = current_radius + 0.15
+		var inner: float = maxf(current_radius - 0.2, 0.1)
+		var outer: float = inner + 0.5
+		tmesh.outer_radius = outer  # Set outer first — prevents momentary inner==outer
+		tmesh.inner_radius = inner
 		# Fade out as it expands
 		var alpha: float = 1.0 - (current_radius / PULSE_MAX_RADIUS)
 		var mat: StandardMaterial3D = ring.get_surface_override_material(0)
@@ -512,3 +555,107 @@ func _spawn_pulse() -> void:
 	ring.set_surface_override_material(0, rmat)
 	add_child(ring)
 	_pulse_rings.append(ring)
+
+# ─── AI Signal Handlers ──────────────────────────────────────────
+
+func _connect_ai_signals() -> void:
+	if not NexusAI:
+		return
+	NexusAI.state_changed.connect(_on_ai_state_changed)
+	NexusAI.response_complete.connect(_on_ai_response_complete)
+	NexusAI.navigation_command.connect(_on_navigation_command)
+	print("NexusHub: connected to NexusAI signals")
+
+func _on_ai_state_changed(new_state: NexusAI.State) -> void:
+	_ai_state = new_state
+	match new_state:
+		NexusAI.State.IDLE:
+			_ring_speed_multiplier = 1.0
+			_scanner_active = true
+			_remove_thinking_particles()
+		NexusAI.State.LISTENING:
+			# 2x brightness on core, slow rings to 50%
+			_ring_speed_multiplier = 0.5
+			_scanner_active = false
+			if _core_mesh_instance:
+				var mat: StandardMaterial3D = _core_mesh_instance.get_surface_override_material(0)
+				if mat:
+					mat.emission_energy_multiplier = _core_base_emission * 2.0
+		NexusAI.State.TRANSCRIBING:
+			_ring_speed_multiplier = 1.0
+		NexusAI.State.THINKING:
+			# Orange pulse on core, 3x ring speed
+			_ring_speed_multiplier = 3.0
+			_scanner_active = true
+			if _core_mesh_instance:
+				var mat: StandardMaterial3D = _core_mesh_instance.get_surface_override_material(0)
+				if mat:
+					mat.emission = Color(0.9, 0.5, 0.1)
+					mat.emission_energy_multiplier = _core_base_emission * 1.5
+		NexusAI.State.SPEAKING:
+			# Normal speed + wobble, core back to blue
+			_ring_speed_multiplier = 1.0
+			_scanner_active = true
+			if _core_mesh_instance:
+				var mat: StandardMaterial3D = _core_mesh_instance.get_surface_override_material(0)
+				if mat:
+					mat.emission = Color(0.2, 0.4, 0.95)
+					mat.emission_energy_multiplier = _core_base_emission
+
+func _on_ai_response_complete(full_text: String, referenced_notes: Array) -> void:
+	# Spawn query beams from referenced towers toward hub
+	_clear_query_beams()
+	if referenced_notes.is_empty():
+		return
+	var city_layer: Node3D = get_parent()
+	if not city_layer or not city_layer.has_method("get_tower_positions"):
+		return
+	var tower_positions: Dictionary = city_layer.get_tower_positions()
+	for note_id in referenced_notes:
+		if tower_positions.has(note_id):
+			var tower_pos: Vector3 = tower_positions[note_id]
+			var hub_pos: Vector3 = global_position + Vector3(0, 20, 0)
+			_spawn_query_beam(tower_pos, hub_pos)
+	_query_beam_fade_timer = QUERY_BEAM_FADE_DURATION
+
+func _on_navigation_command(_target_note_id: String, _action: String) -> void:
+	# Visual pulse on referenced towers handled by city_layer
+	pass
+
+func _spawn_query_beam(from: Vector3, to: Vector3) -> void:
+	var beam := MeshInstance3D.new()
+	var direction: Vector3 = to - from
+	var length: float = direction.length()
+	var midpoint: Vector3 = from + direction * 0.5
+
+	var bmesh := BoxMesh.new()
+	bmesh.size = Vector3(0.15, length, 0.15)
+	beam.mesh = bmesh
+	beam.position = midpoint - global_position  # Local to hub
+
+	# Orient beam along the from→to direction
+	beam.look_at_from_position(midpoint - global_position, to - global_position, Vector3.UP)
+	beam.rotate_object_local(Vector3(1, 0, 0), PI / 2.0)
+
+	var bmat := StandardMaterial3D.new()
+	bmat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	bmat.albedo_color = Color(0.2, 0.5, 1.0, 0.6)
+	bmat.emission_enabled = true
+	bmat.emission = Color(0.15, 0.4, 0.95)
+	bmat.emission_energy_multiplier = 5.0
+	bmat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	beam.set_surface_override_material(0, bmat)
+	add_child(beam)
+	_query_beams.append(beam)
+
+func _clear_query_beams() -> void:
+	for beam in _query_beams:
+		if is_instance_valid(beam):
+			beam.queue_free()
+	_query_beams.clear()
+	_query_beam_fade_timer = 0.0
+
+func _remove_thinking_particles() -> void:
+	if _thinking_particles and is_instance_valid(_thinking_particles):
+		_thinking_particles.queue_free()
+		_thinking_particles = null

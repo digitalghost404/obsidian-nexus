@@ -48,11 +48,19 @@ func _physics_process(delta: float) -> void:
 		input_dir.x += 1
 
 	input_dir = input_dir.normalized()
-	input_dir = transform.basis * input_dir
+
+	# Project movement onto horizontal plane so looking up/down doesn't change speed
+	var forward: Vector3 = -transform.basis.z
+	forward.y = 0
+	forward = forward.normalized()
+	var right: Vector3 = transform.basis.x
+	right.y = 0
+	right = right.normalized()
+	var move_dir: Vector3 = forward * input_dir.z * -1.0 + right * input_dir.x
 
 	var speed := sprint_speed if Input.is_key_pressed(KEY_SHIFT) else walk_speed
-	velocity.x = input_dir.x * speed
-	velocity.z = input_dir.z * speed
+	velocity.x = move_dir.x * speed
+	velocity.z = move_dir.z * speed
 
 	if _spawn_frames > 10:
 		if not is_on_floor():

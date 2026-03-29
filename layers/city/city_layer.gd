@@ -364,21 +364,103 @@ func _build_city() -> void:
 func highlight_notes(note_ids: Array) -> void:
 	for note_id in _tower_map:
 		var tower: Node3D = _tower_map[note_id]
+		var is_highlighted: bool = note_id in note_ids
+		# Change ALL children — make highlighted towers very bright, dimmed nearly invisible
 		for child in tower.get_children():
 			if child is MeshInstance3D:
 				var mesh_child: MeshInstance3D = child as MeshInstance3D
 				var mat: Material = mesh_child.get_surface_override_material(0)
-				if mat is StandardMaterial3D:
-					var std_mat: StandardMaterial3D = mat.duplicate() as StandardMaterial3D
-					if note_id in note_ids:
-						std_mat.emission_energy_multiplier = 12.0
+				if mat is ShaderMaterial:
+					var smat: ShaderMaterial = mat.duplicate() as ShaderMaterial
+					if is_highlighted:
+						smat.set_shader_parameter("emission_strength", 15.0)
 					else:
-						std_mat.emission_energy_multiplier = 0.1
+						smat.set_shader_parameter("emission_strength", 0.05)
+					mesh_child.set_surface_override_material(0, smat)
+				elif mat is StandardMaterial3D:
+					var std_mat: StandardMaterial3D = mat.duplicate() as StandardMaterial3D
+					if is_highlighted:
+						std_mat.emission_energy_multiplier = 20.0
+					else:
+						std_mat.emission_energy_multiplier = 0.02
 					mesh_child.set_surface_override_material(0, std_mat)
-				break
+			elif child is Label3D:
+				if is_highlighted:
+					child.modulate.a = 1.0
+				else:
+					child.modulate.a = 0.05
 
 func get_tower_positions() -> Dictionary:
 	return _tower_positions
+
+func teleport_to_note(note_id: String) -> void:
+	## Teleports the player camera to face the tower for the given note ID
+	## Tries exact match first, then fuzzy match on tower keys
+	var matched_id: String = note_id
+	if not _tower_positions.has(matched_id):
+		# Fuzzy match — try partial ID match
+		var lower: String = note_id.to_lower()
+		for key in _tower_positions:
+			if lower in key.to_lower() or key.to_lower() in lower:
+				matched_id = key
+				break
+	if not _tower_positions.has(matched_id):
+		# Word match — all words appear in key
+		var words: PackedStringArray = note_id.to_lower().split(" ", false)
+		for key in _tower_positions:
+			var lower_key: String = key.to_lower()
+			var all_match: bool = true
+			for word in words:
+				if word not in lower_key:
+					all_match = false
+					break
+			if all_match:
+				matched_id = key
+				break
+	if not _tower_positions.has(matched_id):
+		push_warning("CityLayer: cannot teleport — note '%s' has no tower" % note_id)
+		return
+	var tower_pos: Vector3 = _tower_positions[matched_id]
+	var cam: Node3D = LayerManager.current_camera
+	if not cam:
+		push_warning("CityLayer: cannot teleport — no camera")
+		return
+	# Position camera 10 units away from tower, facing it, at comfortable height
+	var offset: Vector3 = (cam.global_position - tower_pos).normalized() * 10.0
+	offset.y = 0
+	var target_pos: Vector3 = tower_pos + offset
+	target_pos.y = 2.0  # Eye height
+	cam.global_position = target_pos
+	# Reset velocity to prevent falling
+	if cam is CharacterBody3D:
+		cam.velocity = Vector3.ZERO
+		# Reset spawn grace period so gravity doesn't kick in immediately
+		if "_spawn_frames" in cam:
+			cam._spawn_frames = 0
+	cam.look_at(tower_pos + Vector3(0, tower_pos.y * 0.5, 0))
+	print("CityLayer: teleported to note '%s' at %s" % [matched_id, str(target_pos)])
+
+func pulse_tower(note_id: String) -> void:
+	## Temporarily brightens the tower for the given note for ~3 seconds
+	if not _tower_map.has(note_id):
+		return
+	var tower: Node3D = _tower_map[note_id]
+	for child in tower.get_children():
+		if child is MeshInstance3D:
+			var mesh_child: MeshInstance3D = child as MeshInstance3D
+			var mat: Material = mesh_child.get_surface_override_material(0)
+			if mat is StandardMaterial3D:
+				var bright_mat: StandardMaterial3D = mat.duplicate() as StandardMaterial3D
+				bright_mat.emission_energy_multiplier = 15.0
+				mesh_child.set_surface_override_material(0, bright_mat)
+				# Revert after 3 seconds
+				var tween := create_tween()
+				tween.tween_interval(3.0)
+				tween.tween_callback(func():
+					if is_instance_valid(mesh_child):
+						mesh_child.set_surface_override_material(0, mat)
+				)
+			break
 
 func clear_highlights() -> void:
 	for note_id in _tower_map:
@@ -389,7 +471,11 @@ func clear_highlights() -> void:
 			if child is MeshInstance3D:
 				var mesh_child: MeshInstance3D = child as MeshInstance3D
 				var mat: Material = mesh_child.get_surface_override_material(0)
-				if mat is StandardMaterial3D:
+				if mat is ShaderMaterial:
+					var smat: ShaderMaterial = mat.duplicate() as ShaderMaterial
+					smat.set_shader_parameter("emission_strength", 1.5 + temp * 2.0)
+					mesh_child.set_surface_override_material(0, smat)
+				elif mat is StandardMaterial3D:
 					var std_mat: StandardMaterial3D = mat.duplicate() as StandardMaterial3D
 					std_mat.emission_energy_multiplier = 2.0 + temp * 6.0
 					mesh_child.set_surface_override_material(0, std_mat)
