@@ -227,6 +227,59 @@ func _build_city() -> void:
 		atmo_light.name = "AtmoLight_%d" % idx
 		add_child(atmo_light)
 
+	# High-altitude fog volume — creates depth haze between distant towers
+	var fog_volume := FogVolume.new()
+	fog_volume.size = Vector3(city_size.x * 2.5, 8.0, city_size.y * 2.5)
+	fog_volume.position = Vector3(city_size.x / 2.0, 4.0, city_size.y / 2.0)
+	var fog_mat := FogMaterial.new()
+	fog_mat.density = 0.015
+	fog_mat.albedo = Color(0.01, 0.015, 0.05)
+	fog_mat.emission = Color(0.005, 0.008, 0.025)
+	fog_volume.material = fog_mat
+	add_child(fog_volume)
+
+	# Upper atmosphere fog — subtle haze at tower-top height
+	var upper_fog := FogVolume.new()
+	upper_fog.size = Vector3(city_size.x * 2.0, 5.0, city_size.y * 2.0)
+	upper_fog.position = Vector3(city_size.x / 2.0, 18.0, city_size.y / 2.0)
+	var upper_fog_mat := FogMaterial.new()
+	upper_fog_mat.density = 0.008
+	upper_fog_mat.albedo = Color(0.008, 0.01, 0.035)
+	upper_fog.material = upper_fog_mat
+	add_child(upper_fog)
+
+	# Overhead data stream lines — thin glowing horizontal beams at height
+	# Creates the illusion of data flowing through the sky above
+	var stream_mat := StandardMaterial3D.new()
+	stream_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	stream_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	for i in range(20):
+		var stream := MeshInstance3D.new()
+		var smesh := BoxMesh.new()
+		var length := 30.0 + randf() * 80.0
+		smesh.size = Vector3(length, 0.04, 0.04)
+		stream.mesh = smesh
+		stream.position = Vector3(
+			randf() * city_size.x,
+			15.0 + randf() * 20.0,
+			randf() * city_size.y
+		)
+		stream.rotation.y = randf() * PI
+		var smat := stream_mat.duplicate()
+		var is_accent := randf() > 0.75
+		if is_accent:
+			smat.albedo_color = Color(0.8, 0.35, 0.05, 0.25)
+			smat.emission_enabled = true
+			smat.emission = Color(0.7, 0.3, 0.05)
+			smat.emission_energy_multiplier = 2.0
+		else:
+			smat.albedo_color = Color(0.08, 0.2, 0.6, 0.2)
+			smat.emission_enabled = true
+			smat.emission = Color(0.06, 0.15, 0.5)
+			smat.emission_energy_multiplier = 1.5
+		stream.set_surface_override_material(0, smat)
+		add_child(stream)
+
 	# Build link beams
 	var beam_renderer_script: GDScript = load("res://layers/city/city_beam_renderer.gd") as GDScript
 	var beam_renderer: Node3D = Node3D.new()
