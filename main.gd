@@ -22,4 +22,4 @@ func _ready() -> void:
 
 func _on_vault_loaded() -> void:
 	print("Vault loaded: %d notes, %d links" % [VaultDataBus.graph.get_note_count(), VaultDataBus.graph.get_link_count()])
-	LayerManager.load_layer(LayerManager.Layer.CITY)
+	LayerManager.load_city()

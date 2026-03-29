@@ -2,13 +2,14 @@ extends CanvasLayer
 
 var hover_panel: PanelContainer
 var note_viewer: Control
+var map_overlay: Control
 var _crosshair: ColorRect
 var _viewer_open: bool = false
+var _map_open: bool = false
 
 func _ready() -> void:
 	layer = 5
 
-	# Crosshair
 	_crosshair = ColorRect.new()
 	_crosshair.size = Vector2(4, 4)
 	_crosshair.color = Color(1, 1, 1, 0.5)
@@ -16,17 +17,18 @@ func _ready() -> void:
 	_crosshair.position = -Vector2(2, 2)
 	add_child(_crosshair)
 
-	# Hover panel (small tooltip)
 	hover_panel = _create_hover_panel()
 	add_child(hover_panel)
 	hover_panel.hide()
 
-	# Note viewer (full overlay)
 	note_viewer = _create_note_viewer()
 	add_child(note_viewer)
 	note_viewer.hide()
 
-	# Connect signals
+	map_overlay = _create_map_overlay()
+	add_child(map_overlay)
+	map_overlay.hide()
+
 	InputManager.note_hovered.connect(_on_note_hovered)
 	InputManager.note_unhovered.connect(_on_note_unhovered)
 	InputManager.note_clicked.connect(_on_note_clicked)
@@ -34,10 +36,94 @@ func _ready() -> void:
 	InputManager.tag_filter_requested.connect(_on_tag_filter_requested)
 
 func _unhandled_input(event: InputEvent) -> void:
-	if _viewer_open and event is InputEventKey and event.pressed:
+	if event is InputEventKey and event.pressed:
 		if event.keycode == KEY_ESCAPE or event.keycode == KEY_Q:
-			_close_viewer()
-			get_viewport().set_input_as_handled()
+			if _viewer_open:
+				_close_viewer()
+				get_viewport().set_input_as_handled()
+			elif _map_open:
+				_close_map()
+				get_viewport().set_input_as_handled()
+		elif event.keycode == KEY_M or event.keycode == KEY_TAB:
+			if not _viewer_open:
+				if _map_open:
+					_close_map()
+				else:
+					_open_map()
+				get_viewport().set_input_as_handled()
+
+# ============================================================
+# MAP OVERLAY — top-down city map with teleport
+# ============================================================
+
+func _create_map_overlay() -> Control:
+	var root := Control.new()
+	root.name = "MapOverlay"
+	root.anchors_preset = Control.PRESET_FULL_RECT
+	root.mouse_filter = Control.MOUSE_FILTER_STOP
+
+	# Backdrop
+	var backdrop := ColorRect.new()
+	backdrop.anchors_preset = Control.PRESET_FULL_RECT
+	backdrop.color = Color(0.0, 0.005, 0.015, 0.9)
+	root.add_child(backdrop)
+
+	# Title
+	var title := Label.new()
+	title.name = "MapTitle"
+	title.text = "NEXUS MAP — Click to teleport | ESC to close"
+	title.add_theme_font_size_override("font_size", 16)
+	title.add_theme_color_override("font_color", Color(0.5, 0.6, 0.9))
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.position = Vector2(0, 10)
+	title.anchors_preset = Control.PRESET_TOP_WIDE
+	root.add_child(title)
+
+	# Map canvas — draws dots for notes
+	var map_canvas := Control.new()
+	map_canvas.name = "MapCanvas"
+	map_canvas.anchors_preset = Control.PRESET_FULL_RECT
+	map_canvas.mouse_filter = Control.MOUSE_FILTER_STOP
+	map_canvas.set_script(load("res://ui/map_canvas.gd"))
+	root.add_child(map_canvas)
+
+	return root
+
+func _open_map() -> void:
+	_map_open = true
+	hover_panel.hide()
+	_crosshair.hide()
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+
+	# Get tower positions from city layer
+	var city = LayerManager.current_scene
+	if city and city.has_method("get_tower_positions"):
+		var positions: Dictionary = city.get_tower_positions()
+		var canvas = map_overlay.get_node("MapCanvas")
+		if canvas.has_method("set_data"):
+			canvas.set_data(positions, VaultDataBus.graph)
+
+	map_overlay.show()
+
+func _close_map() -> void:
+	_map_open = false
+	map_overlay.hide()
+	_crosshair.show()
+	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+func _teleport_to_note(note_id: String) -> void:
+	var city = LayerManager.current_scene
+	if not city:
+		return
+	if city.has_method("get_tower_positions"):
+		var positions: Dictionary = city.get_tower_positions()
+		if positions.has(note_id):
+			var pos: Vector3 = positions[note_id]
+			var cam = LayerManager.current_camera
+			if cam:
+				cam.global_position = Vector3(pos.x, 2.0, pos.z)
+				print("Teleported to: %s" % note_id)
+	_close_map()
 
 # ============================================================
 # NOTE VIEWER — cyberpunk holographic overlay
@@ -49,25 +135,14 @@ func _create_note_viewer() -> Control:
 	root.anchors_preset = Control.PRESET_FULL_RECT
 	root.mouse_filter = Control.MOUSE_FILTER_STOP
 
-	# Dark semi-transparent backdrop
 	var backdrop := ColorRect.new()
 	backdrop.name = "Backdrop"
 	backdrop.anchors_preset = Control.PRESET_FULL_RECT
 	backdrop.color = Color(0.0, 0.005, 0.02, 0.85)
 	root.add_child(backdrop)
 
-	# Main panel — centered, sized to 70% of screen
 	var panel := PanelContainer.new()
 	panel.name = "Panel"
-	panel.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
-	panel.anchor_left = 0.1
-	panel.anchor_top = 0.03
-	panel.anchor_right = 0.9
-	panel.anchor_bottom = 0.97
-	panel.offset_left = 0
-	panel.offset_top = 0
-	panel.offset_right = 0
-	panel.offset_bottom = 0
 	var style := StyleBoxFlat.new()
 	style.bg_color = Color(0.015, 0.02, 0.05, 0.95)
 	style.border_color = Color(0.1, 0.2, 0.7, 0.6)
@@ -83,68 +158,52 @@ func _create_note_viewer() -> Control:
 	style.content_margin_right = 24
 	style.content_margin_top = 16
 	style.content_margin_bottom = 16
-	style.shadow_color = Color(0.05, 0.1, 0.4, 0.3)
-	style.shadow_size = 12
 	panel.add_theme_stylebox_override("panel", style)
 	root.add_child(panel)
 
 	var vbox := VBoxContainer.new()
 	vbox.name = "Content"
 	vbox.add_theme_constant_override("separation", 8)
-	vbox.anchors_preset = Control.PRESET_FULL_RECT
 	panel.add_child(vbox)
 
-	# Header row: title + close button
 	var header := HBoxContainer.new()
 	header.name = "Header"
-
 	var title := Label.new()
 	title.name = "Title"
 	title.add_theme_font_size_override("font_size", 28)
 	title.add_theme_color_override("font_color", Color(0.9, 0.7, 0.2))
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header.add_child(title)
-
 	var close_btn := Button.new()
-	close_btn.name = "CloseBtn"
 	close_btn.text = " X "
 	close_btn.add_theme_font_size_override("font_size", 20)
 	close_btn.pressed.connect(_close_viewer)
 	header.add_child(close_btn)
-
 	vbox.add_child(header)
 
-	# Tags + connections row
 	var meta_row := HBoxContainer.new()
 	meta_row.name = "MetaRow"
 	meta_row.add_theme_constant_override("separation", 16)
-
 	var tags_label := Label.new()
 	tags_label.name = "Tags"
 	tags_label.add_theme_font_size_override("font_size", 13)
 	tags_label.add_theme_color_override("font_color", Color(0.4, 0.5, 0.85))
 	meta_row.add_child(tags_label)
-
 	var conn_label := Label.new()
 	conn_label.name = "Connections"
 	conn_label.add_theme_font_size_override("font_size", 13)
 	conn_label.add_theme_color_override("font_color", Color(0.3, 0.7, 0.8))
 	meta_row.add_child(conn_label)
-
 	var folder_label := Label.new()
 	folder_label.name = "Folder"
 	folder_label.add_theme_font_size_override("font_size", 13)
 	folder_label.add_theme_color_override("font_color", Color(0.5, 0.5, 0.6))
 	meta_row.add_child(folder_label)
-
 	vbox.add_child(meta_row)
 
-	# Separator line
 	var sep := HSeparator.new()
-	sep.add_theme_stylebox_override("separator", StyleBoxLine.new())
 	vbox.add_child(sep)
 
-	# Body — ScrollContainer with a Label inside, content set in _open_viewer
 	var body_scroll := ScrollContainer.new()
 	body_scroll.name = "BodyScroll"
 	body_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -158,18 +217,14 @@ func _create_note_viewer() -> Control:
 	body_scroll.add_child(body_label)
 	vbox.add_child(body_scroll)
 
-	# Links section
 	var links_sep := HSeparator.new()
-	links_sep.add_theme_stylebox_override("separator", StyleBoxLine.new())
 	vbox.add_child(links_sep)
-
-	var links_label := Label.new()
-	links_label.name = "LinksHeader"
-	links_label.text = "LINKED NOTES"
-	links_label.add_theme_font_size_override("font_size", 12)
-	links_label.add_theme_color_override("font_color", Color(0.5, 0.55, 0.7))
-	vbox.add_child(links_label)
-
+	var links_header := Label.new()
+	links_header.name = "LinksHeader"
+	links_header.text = "LINKED NOTES"
+	links_header.add_theme_font_size_override("font_size", 12)
+	links_header.add_theme_color_override("font_color", Color(0.5, 0.55, 0.7))
+	vbox.add_child(links_header)
 	var links_flow := FlowContainer.new()
 	links_flow.name = "Links"
 	links_flow.add_theme_constant_override("h_separation", 6)
@@ -177,7 +232,6 @@ func _create_note_viewer() -> Control:
 	links_flow.custom_minimum_size = Vector2(0, 40)
 	vbox.add_child(links_flow)
 
-	# Hint
 	var hint := Label.new()
 	hint.text = "Press ESC or Q to close"
 	hint.add_theme_font_size_override("font_size", 11)
@@ -192,53 +246,45 @@ func _open_viewer(note_id: String) -> void:
 	if not note:
 		return
 
+	if _map_open:
+		_close_map()
+
 	_viewer_open = true
 	hover_panel.hide()
 	_crosshair.hide()
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
 	var panel: PanelContainer = note_viewer.get_node("Panel")
-	# Force panel size based on viewport — anchors can be unreliable in CanvasLayer
 	var vp_size: Vector2 = get_viewport().get_visible_rect().size
 	panel.position = Vector2(vp_size.x * 0.1, vp_size.y * 0.03)
 	panel.size = Vector2(vp_size.x * 0.8, vp_size.y * 0.94)
 	var content: VBoxContainer = panel.get_node("Content")
 
-	# Title
 	content.get_node("Header/Title").text = note.title
-
-	# Meta
 	var tags_text: String = ", ".join(note.tags) if note.tags.size() > 0 else "no tags"
 	content.get_node("MetaRow/Tags").text = "Tags: %s" % tags_text
 	var conns: int = VaultDataBus.graph.get_connection_count(note_id)
 	content.get_node("MetaRow/Connections").text = "%d connections" % conns
 	content.get_node("MetaRow/Folder").text = note.folder if not note.folder.is_empty() else "root"
 
-	# Body content — just update the existing label text
 	var body_label: Label = content.get_node("BodyScroll/BodyLabel")
 	body_label.text = note.content
-	# Reset scroll to top
 	var body_scroll: ScrollContainer = content.get_node("BodyScroll")
 	body_scroll.scroll_vertical = 0
 
-	# Links
 	var links_flow: FlowContainer = content.get_node("Links")
 	for child in links_flow.get_children():
 		child.queue_free()
 
-	var all_links: Array = note.outgoing_links
-	var back_links: Array = VaultDataBus.graph.get_backlinks(note_id)
-
-	for link_id in all_links:
+	for link_id in note.outgoing_links:
 		var linked_note = VaultDataBus.graph.get_note(link_id)
 		var btn := Button.new()
 		btn.text = linked_note.title if linked_note else link_id
 		btn.add_theme_font_size_override("font_size", 12)
-		btn.add_theme_color_override("font_color", Color(0.3, 0.6, 0.95))
 		btn.pressed.connect(func(): _open_viewer(link_id))
 		links_flow.add_child(btn)
 
-	for link_id in back_links:
+	for link_id in VaultDataBus.graph.get_backlinks(note_id):
 		var linked_note = VaultDataBus.graph.get_note(link_id)
 		var btn := Button.new()
 		btn.text = "<< %s" % (linked_note.title if linked_note else link_id)
@@ -256,7 +302,7 @@ func _close_viewer() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 # ============================================================
-# HOVER PANEL (small tooltip)
+# HOVER PANEL
 # ============================================================
 
 func _create_hover_panel() -> PanelContainer:
@@ -268,10 +314,6 @@ func _create_hover_panel() -> PanelContainer:
 	style.border_width_top = 1
 	style.border_width_left = 1
 	style.border_width_right = 1
-	style.corner_radius_top_left = 4
-	style.corner_radius_top_right = 4
-	style.corner_radius_bottom_left = 4
-	style.corner_radius_bottom_right = 4
 	style.content_margin_left = 12
 	style.content_margin_right = 12
 	style.content_margin_top = 8
@@ -280,19 +322,16 @@ func _create_hover_panel() -> PanelContainer:
 
 	var vbox := VBoxContainer.new()
 	vbox.name = "VBox"
-
 	var title := Label.new()
 	title.name = "Title"
 	title.add_theme_font_size_override("font_size", 18)
 	title.add_theme_color_override("font_color", Color(0.9, 0.92, 0.98))
 	vbox.add_child(title)
-
 	var tags := Label.new()
 	tags.name = "Tags"
 	tags.add_theme_font_size_override("font_size", 12)
 	tags.add_theme_color_override("font_color", Color(0.5, 0.55, 0.85))
 	vbox.add_child(tags)
-
 	var preview := RichTextLabel.new()
 	preview.name = "Preview"
 	preview.custom_minimum_size = Vector2(300, 80)
@@ -301,13 +340,11 @@ func _create_hover_panel() -> PanelContainer:
 	preview.add_theme_font_size_override("normal_font_size", 13)
 	preview.add_theme_color_override("default_color", Color(0.7, 0.75, 0.85))
 	vbox.add_child(preview)
-
 	var connections := Label.new()
 	connections.name = "Connections"
 	connections.add_theme_font_size_override("font_size", 12)
 	connections.add_theme_color_override("font_color", Color(0.4, 0.8, 0.9))
 	vbox.add_child(connections)
-
 	panel.add_child(vbox)
 	return panel
 
@@ -316,13 +353,12 @@ func _create_hover_panel() -> PanelContainer:
 # ============================================================
 
 func _on_note_hovered(note_id: String) -> void:
-	if _viewer_open:
+	if _viewer_open or _map_open:
 		return
 	var note = VaultDataBus.graph.get_note(note_id)
 	if not note:
 		hover_panel.hide()
 		return
-
 	var vbox = hover_panel.get_node("VBox")
 	vbox.get_node("Title").text = note.title
 	vbox.get_node("Tags").text = ", ".join(note.tags) if note.tags.size() > 0 else "no tags"
@@ -331,21 +367,22 @@ func _on_note_hovered(note_id: String) -> void:
 		preview_text += "..."
 	vbox.get_node("Preview").text = preview_text
 	vbox.get_node("Connections").text = "%d connections" % VaultDataBus.graph.get_connection_count(note_id)
-
 	var mouse_pos := get_viewport().get_mouse_position()
 	hover_panel.position = mouse_pos + Vector2(20, 20)
 	hover_panel.show()
 
 func _on_note_unhovered() -> void:
-	if _viewer_open:
+	if _viewer_open or _map_open:
 		return
 	hover_panel.hide()
 
 func _on_note_clicked(note_id: String) -> void:
+	if _map_open:
+		return
 	_open_viewer(note_id)
 
 func _on_search_requested() -> void:
-	if _viewer_open:
+	if _viewer_open or _map_open:
 		return
 	var search_dialog := AcceptDialog.new()
 	search_dialog.title = "Search Vault"
@@ -355,7 +392,6 @@ func _on_search_requested() -> void:
 	add_child(search_dialog)
 	search_dialog.popup_centered(Vector2(400, 100))
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-
 	line_edit.text_submitted.connect(func(query: String):
 		var results: Array = []
 		var lower_q := query.to_lower()
@@ -369,7 +405,7 @@ func _on_search_requested() -> void:
 	)
 
 func _on_tag_filter_requested() -> void:
-	if _viewer_open:
+	if _viewer_open or _map_open:
 		return
 	var tag_dialog := AcceptDialog.new()
 	tag_dialog.title = "Filter by Tag"
@@ -382,7 +418,6 @@ func _on_tag_filter_requested() -> void:
 	add_child(tag_dialog)
 	tag_dialog.popup_centered(Vector2(400, 100))
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-
 	tag_dialog.confirmed.connect(func():
 		var selected := option.get_item_text(option.selected)
 		if selected == "-- Select Tag --":

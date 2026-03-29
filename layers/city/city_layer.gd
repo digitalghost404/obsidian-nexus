@@ -190,6 +190,9 @@ func highlight_notes(note_ids: Array) -> void:
 					mesh_child.set_surface_override_material(0, std_mat)
 				break
 
+func get_tower_positions() -> Dictionary:
+	return _tower_positions
+
 func clear_highlights() -> void:
 	for note_id in _tower_map:
 		var tower: Node3D = _tower_map[note_id]
