@@ -36,8 +36,32 @@ func build_corridor(note_id: String) -> void:
 	print("Corridor: building for '%s' — %d segments, %d panels, %d doorways" % [
 		note.title, layout["segments"].size(), layout["wall_panels"].size(), layout["doorways"].size()
 	])
+	print("Corridor: total_length=%.1f, first segment z=%.1f" % [layout["total_length"], layout["segments"][0]["position_z"]])
 
 	_build_hallway_geometry(layout)
+
+	# DEBUG: bright test cube and light so we can see if ANYTHING renders
+	var debug_cube := MeshInstance3D.new()
+	var debug_mesh := BoxMesh.new()
+	debug_mesh.size = Vector3(1, 1, 1)
+	debug_cube.mesh = debug_mesh
+	debug_cube.position = Vector3(0, 1.5, 4)
+	var debug_mat := StandardMaterial3D.new()
+	debug_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	debug_mat.albedo_color = Color(1, 0, 0)
+	debug_mat.emission_enabled = true
+	debug_mat.emission = Color(1, 0, 0)
+	debug_mat.emission_energy_multiplier = 5.0
+	debug_cube.set_surface_override_material(0, debug_mat)
+	add_child(debug_cube)
+
+	var debug_light := OmniLight3D.new()
+	debug_light.light_color = Color(1, 1, 1)
+	debug_light.light_energy = 10.0
+	debug_light.omni_range = 30.0
+	debug_light.position = Vector3(0, 2, 4)
+	add_child(debug_light)
+	print("Corridor: DEBUG cube at (0, 1.5, 4), light at (0, 2, 4)")
 
 	# Place wall panels
 	for panel_data in layout["wall_panels"]:

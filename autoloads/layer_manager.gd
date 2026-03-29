@@ -67,7 +67,7 @@ func load_layer(layer: Layer, context: Dictionary = {}) -> void:
 	current_scene = scene_instance
 	current_camera = cam_instance
 	current_layer = layer
-	print("LayerManager: loaded %s" % Layer.keys()[layer])
+	print("LayerManager: loaded %s, camera at %s" % [Layer.keys()[layer], str(cam_instance.position)])
 	layer_changed.emit(layer)
 
 func transition_to(target_layer: Layer, context: Dictionary = {}) -> void:
