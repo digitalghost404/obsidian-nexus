@@ -17,6 +17,10 @@ window/size/viewport_height=1440
 window/size/mode=2
 window/vsync/vsync_mode=0
 
+[autoload]
+
+VaultDataBus="*res://autoloads/vault_data_bus.gd"
+
 [rendering]
 
 renderer/rendering_method="forward_plus"
