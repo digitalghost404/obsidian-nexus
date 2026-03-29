@@ -139,22 +139,18 @@ func _create_note_viewer() -> Control:
 	sep.add_theme_stylebox_override("separator", StyleBoxLine.new())
 	vbox.add_child(sep)
 
-	# Content area — scrollable
-	var scroll := ScrollContainer.new()
-	scroll.name = "Scroll"
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-
+	# Content area — scrollable rich text
 	var content_text := RichTextLabel.new()
 	content_text.name = "Body"
 	content_text.bbcode_enabled = true
-	content_text.fit_content = true
+	content_text.fit_content = false
+	content_text.scroll_active = true
+	content_text.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	content_text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	content_text.add_theme_font_size_override("normal_font_size", 15)
 	content_text.add_theme_font_size_override("bold_font_size", 16)
 	content_text.add_theme_color_override("default_color", Color(0.75, 0.78, 0.88))
-	scroll.add_child(content_text)
-
-	vbox.add_child(scroll)
+	vbox.add_child(content_text)
 
 	# Links section
 	var links_sep := HSeparator.new()
@@ -209,7 +205,7 @@ func _open_viewer(note_id: String) -> void:
 	content.get_node("MetaRow/Folder").text = note.folder if not note.folder.is_empty() else "root"
 
 	# Body content
-	var body: RichTextLabel = content.get_node("Scroll/Body")
+	var body: RichTextLabel = content.get_node("Body")
 	body.text = note.content
 
 	# Links

@@ -5,32 +5,33 @@ extends CharacterBody3D
 @export var mouse_sensitivity: float = 0.002
 @export var camera_height: float = 1.7
 
-var _mouse_captured: bool = false
-var _spawn_frames: int = 0  # Grace period before enabling gravity
+var _spawn_frames: int = 0
 
 @onready var camera: Camera3D = $Camera3D
 
 func _ready() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
-	_mouse_captured = true
 	camera.position.y = camera_height
 	camera.current = true
 	_spawn_frames = 0
-	print("PlayerCamera: ready, camera.current=%s" % str(camera.current))
 
 func _unhandled_input(event: InputEvent) -> void:
-	if event is InputEventMouseMotion and _mouse_captured:
+	# Only process mouse look when cursor is captured (not when UI overlay is open)
+	if Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
+		return
+
+	if event is InputEventMouseMotion:
 		rotate_y(-event.relative.x * mouse_sensitivity)
 		camera.rotate_x(-event.relative.y * mouse_sensitivity)
 		camera.rotation.x = clampf(camera.rotation.x, -PI / 2.0, PI / 2.0)
 
-	if event is InputEventKey and event.pressed:
-		if event.keycode == KEY_ESCAPE:
-			_mouse_captured = not _mouse_captured
-			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED if _mouse_captured else Input.MOUSE_MODE_VISIBLE
-
 func _physics_process(delta: float) -> void:
 	_spawn_frames += 1
+
+	# Don't move when UI overlay is open
+	if Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
+		velocity = Vector3.ZERO
+		return
 
 	var input_dir := Vector3.ZERO
 	if Input.is_key_pressed(KEY_W):
@@ -49,7 +50,6 @@ func _physics_process(delta: float) -> void:
 	velocity.x = input_dir.x * speed
 	velocity.z = input_dir.z * speed
 
-	# Don't apply gravity for the first 10 frames — let physics register floor collision
 	if _spawn_frames > 10:
 		if not is_on_floor():
 			velocity.y -= 20.0 * delta
