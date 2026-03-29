@@ -83,14 +83,11 @@ func _create_note_viewer() -> Control:
 	panel.add_theme_stylebox_override("panel", style)
 	root.add_child(panel)
 
-	var margin := MarginContainer.new()
-	margin.anchors_preset = Control.PRESET_FULL_RECT
-	panel.add_child(margin)
-
 	var vbox := VBoxContainer.new()
 	vbox.name = "Content"
 	vbox.add_theme_constant_override("separation", 8)
-	margin.add_child(vbox)
+	vbox.anchors_preset = Control.PRESET_FULL_RECT
+	panel.add_child(vbox)
 
 	# Header row: title + close button
 	var header := HBoxContainer.new()
@@ -199,7 +196,7 @@ func _open_viewer(note_id: String) -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
 	var panel: PanelContainer = note_viewer.get_node("Panel")
-	var content: VBoxContainer = panel.get_node("MarginContainer/Content")
+	var content: VBoxContainer = panel.get_node("Content")
 
 	# Title
 	content.get_node("Header/Title").text = note.title
