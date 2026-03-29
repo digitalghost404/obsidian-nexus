@@ -14,7 +14,8 @@ config/icon="res://icon.svg"
 
 window/size/viewport_width=3440
 window/size/viewport_height=1440
-window/size/mode=2
+window/size/mode=3
+window/size/borderless=true
 window/vsync/vsync_mode=0
 
 [autoload]
