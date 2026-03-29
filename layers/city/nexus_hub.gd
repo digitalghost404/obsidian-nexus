@@ -43,30 +43,21 @@ func _build_hub() -> void:
 	core.set_surface_override_material(0, core_mat)
 	add_child(core)
 
-	# Floor rings — concentric glowing circles
-	var ring_radii := [6.0, 10.0, 15.0, 21.0, 28.0]
-	var ring_colors: Array[Color] = [
-		Color(0.1, 0.3, 0.9),   # blue
-		Color(0.9, 0.45, 0.05), # orange
-		Color(0.08, 0.25, 0.8), # blue
-		Color(0.8, 0.35, 0.05), # orange
-		Color(0.06, 0.2, 0.7),  # blue
-	]
-	for i in range(ring_radii.size()):
-		var ring := MeshInstance3D.new()
-		var ring_mesh := TorusMesh.new()
-		ring_mesh.inner_radius = ring_radii[i] - 0.15
-		ring_mesh.outer_radius = ring_radii[i] + 0.15
-		ring.mesh = ring_mesh
-		ring.position = Vector3(0, 0.05, 0)
-		var ring_mat := StandardMaterial3D.new()
-		ring_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		ring_mat.albedo_color = ring_colors[i]
-		ring_mat.emission_enabled = true
-		ring_mat.emission = ring_colors[i]
-		ring_mat.emission_energy_multiplier = 2.0 + (5 - i) * 0.5
-		ring.set_surface_override_material(0, ring_mat)
-		add_child(ring)
+	# Hub floor — circuit pattern plane
+	var hub_floor := MeshInstance3D.new()
+	var hub_floor_mesh := PlaneMesh.new()
+	hub_floor_mesh.size = Vector2(60, 60)  # Covers the exclusion zone
+	hub_floor.mesh = hub_floor_mesh
+	hub_floor.position = Vector3(0, 0.02, 0)  # Slightly above ground to avoid z-fighting
+	var hub_floor_shader = load("res://shaders/hub_circuit.gdshader")
+	if hub_floor_shader:
+		var hf_mat := ShaderMaterial.new()
+		hf_mat.shader = hub_floor_shader
+		hf_mat.set_shader_parameter("emission_strength", 2.5)
+		hf_mat.set_shader_parameter("ring_count", 10.0)
+		hf_mat.set_shader_parameter("trace_detail", 35.0)
+		hub_floor.set_surface_override_material(0, hf_mat)
+	add_child(hub_floor)
 
 	# Rotating ring at mid height
 	_rotating_ring = MeshInstance3D.new()

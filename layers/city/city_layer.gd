@@ -31,13 +31,12 @@ func _build_city() -> void:
 	var ground_mesh := PlaneMesh.new()
 	ground_mesh.size = city_size * 2.0  # Extend beyond city bounds
 	ground_visual.mesh = ground_mesh
-	var grid_shader: Resource = load("res://shaders/ground_grid.gdshader")
+	var grid_shader: Resource = load("res://shaders/circuit_floor.gdshader")
 	if grid_shader:
 		var grid_mat := ShaderMaterial.new()
 		grid_mat.shader = grid_shader
-		grid_mat.set_shader_parameter("grid_color", Color(0.12, 0.2, 0.7, 0.35))
-		grid_mat.set_shader_parameter("grid_spacing", 3.0)
-		grid_mat.set_shader_parameter("line_width", 0.03)
+		grid_mat.set_shader_parameter("tile_scale", 10.0)
+		grid_mat.set_shader_parameter("emission_strength", 0.8)
 		ground_visual.set_surface_override_material(0, grid_mat)
 	else:
 		var ground_mat := StandardMaterial3D.new()
@@ -67,6 +66,29 @@ func _build_city() -> void:
 	ground_col.position = Vector3(0, -0.05, 0)
 	ground.add_child(ground_col)
 	add_child(ground)
+
+	# Boundary walls with schematic shader
+	var wall_shader = load("res://shaders/wall_schematic.gdshader")
+	if wall_shader:
+		var wall_height := 25.0
+		var wall_positions := [
+			{"pos": Vector3(city_size.x / 2.0, wall_height / 2.0, -10), "rot": 0.0, "size": Vector2(city_size.x + 40, wall_height)},  # South
+			{"pos": Vector3(city_size.x / 2.0, wall_height / 2.0, city_size.y + 10), "rot": 0.0, "size": Vector2(city_size.x + 40, wall_height)},  # North
+			{"pos": Vector3(-10, wall_height / 2.0, city_size.y / 2.0), "rot": PI / 2.0, "size": Vector2(city_size.y + 40, wall_height)},  # West
+			{"pos": Vector3(city_size.x + 10, wall_height / 2.0, city_size.y / 2.0), "rot": PI / 2.0, "size": Vector2(city_size.y + 40, wall_height)},  # East
+		]
+		for w in wall_positions:
+			var wall := MeshInstance3D.new()
+			var wall_mesh := PlaneMesh.new()
+			wall_mesh.size = w["size"]
+			wall.mesh = wall_mesh
+			wall.position = w["pos"]
+			wall.rotation.y = w["rot"]
+			var w_mat := ShaderMaterial.new()
+			w_mat.shader = wall_shader
+			w_mat.set_shader_parameter("emission_strength", 1.0)
+			wall.set_surface_override_material(0, w_mat)
+			add_child(wall)
 
 	# Central Nexus Hub
 	var hub_script: GDScript = load("res://layers/city/nexus_hub.gd") as GDScript
