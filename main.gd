@@ -22,16 +22,4 @@ func _ready() -> void:
 
 func _on_vault_loaded() -> void:
 	print("Vault loaded: %d notes, %d links" % [VaultDataBus.graph.get_note_count(), VaultDataBus.graph.get_link_count()])
-	# DEBUG TEST: load corridor AND keep a bare camera to see if it overrides
-	# Step 1: Load corridor normally
-	LayerManager.load_layer(LayerManager.Layer.CORRIDOR, {"note_id": "ai-engineering/Building AI Agents"})
-
-	# Step 2: AFTER corridor loads, force a new bare camera as current
-	await get_tree().process_frame
-	await get_tree().process_frame
-	var test_cam := Camera3D.new()
-	test_cam.position = Vector3(0, 1.5, 2)
-	test_cam.rotation.y = PI  # Face +Z
-	test_cam.current = true
-	add_child(test_cam)
-	print("DEBUG: forced test camera at (0, 1.5, 2), current=%s" % str(test_cam.current))
+	LayerManager.load_layer(LayerManager.Layer.CITY)
