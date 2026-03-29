@@ -26,6 +26,7 @@ InputManager="*res://autoloads/input_manager.gd"
 UIManager="*res://autoloads/ui_manager.gd"
 AudioManager="*res://autoloads/audio_manager.gd"
 NexusAIConfig="*res://autoloads/nexus_ai_config.gd"
+NexusAI="*res://autoloads/nexus_ai.gd"
 
 [rendering]
 

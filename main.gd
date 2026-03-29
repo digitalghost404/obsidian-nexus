@@ -19,3 +19,9 @@ func _ready() -> void:
 	AudioManager.set_sfx_volume("close", -10.0)
 	AudioManager.set_sfx_volume("search", -8.0)
 	AudioManager.set_sfx_volume("hub_activate", -5.0)
+
+	# Load AI SFX
+	AudioManager.load_sfx("ai_chime", "res://audio/sfx_ai_chime.ogg")
+	AudioManager.set_sfx_volume("ai_chime", -10.0)
+
+	print("NexusAI: ready — press V to speak, N to type")
