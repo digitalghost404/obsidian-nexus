@@ -268,6 +268,7 @@ func _open_viewer(note_id: String) -> void:
 	note_viewer.show()
 
 func _close_viewer() -> void:
+	AudioManager.play_sfx("close")
 	_viewer_open = false
 	note_viewer.hide()
 	_crosshair.show()
@@ -331,6 +332,7 @@ func _on_note_hovered(note_id: String) -> void:
 	if not note:
 		hover_panel.hide()
 		return
+	AudioManager.play_sfx("hover")
 	var vbox = hover_panel.get_node("VBox")
 	vbox.get_node("Title").text = note.title
 	vbox.get_node("Tags").text = ", ".join(note.tags) if note.tags.size() > 0 else "no tags"
@@ -350,13 +352,16 @@ func _on_note_unhovered() -> void:
 
 func _on_note_clicked(note_id: String) -> void:
 	if note_id == "__nexus_hub__":
+		AudioManager.play_sfx("hub_activate")
 		_on_search_requested()
 	else:
+		AudioManager.play_sfx("click")
 		_open_viewer(note_id)
 
 func _on_search_requested() -> void:
 	if _viewer_open:
 		return
+	AudioManager.play_sfx("search")
 	var search_dialog := AcceptDialog.new()
 	search_dialog.title = "Search Vault"
 	var line_edit := LineEdit.new()

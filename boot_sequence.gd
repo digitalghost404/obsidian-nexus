@@ -67,6 +67,14 @@ func _ready() -> void:
 	if not vault_path.is_empty():
 		VaultDataBus.initialize(vault_path)
 
+	# Load boot SFX
+	AudioManager.load_sfx("boot_key", "res://audio/sfx_boot_key.ogg")
+	AudioManager.load_sfx("boot_ok", "res://audio/sfx_boot_ok.ogg")
+	AudioManager.load_sfx("boot_chime", "res://audio/sfx_boot_chime.ogg")
+	AudioManager.set_sfx_volume("boot_key", -12.0)
+	AudioManager.set_sfx_volume("boot_ok", -8.0)
+	AudioManager.set_sfx_volume("boot_chime", -3.0)
+
 func _on_vault_loaded() -> void:
 	_vault_loaded = true
 	# Replace the stats placeholder
@@ -123,6 +131,9 @@ func _process_typing(delta: float) -> void:
 	if _char_timer >= speed:
 		_char_timer = 0.0
 		_current_char += 1
+		# Typing click — play every 3rd character to not be annoying
+		if _current_char % 3 == 0:
+			AudioManager.play_sfx("boot_key")
 
 		# Strip BBCode for length calculation but display with BBCode
 		var plain_length := _get_plain_length(line)
@@ -135,6 +146,13 @@ func _process_typing(delta: float) -> void:
 			# Faster delay for empty/decorative lines
 			if line.is_empty() or line.begins_with("[color=#1a5fb4]██"):
 				_line_delay_timer = 0.05
+			# Play sound effects based on line content
+			elif "OK" in line:
+				AudioManager.play_sfx("boot_ok")
+			elif "ALL SYSTEMS NOMINAL" in line:
+				AudioManager.play_sfx("boot_chime")
+			elif "Entering" in line:
+				AudioManager.play_sfx("boot_chime")
 
 	# Update cursor position
 	if cursor:
