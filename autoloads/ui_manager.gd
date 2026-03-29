@@ -204,9 +204,13 @@ func _open_viewer(note_id: String) -> void:
 	content.get_node("MetaRow/Connections").text = "%d connections" % conns
 	content.get_node("MetaRow/Folder").text = note.folder if not note.folder.is_empty() else "root"
 
-	# Body content
+	# Body content — use clear + append to avoid BBCode parsing issues with raw markdown
 	var body: RichTextLabel = content.get_node("Body")
-	body.text = note.content
+	body.clear()
+	body.push_color(Color(0.75, 0.78, 0.88))
+	body.append_text(note.content.replace("[", "[lb]"))  # Escape brackets so BBCode doesn't eat them
+	body.pop()
+	print("Viewer: showing '%s' — %d chars" % [note.title, note.content.length()])
 
 	# Links
 	var links_flow: FlowContainer = content.get_node("Links")
