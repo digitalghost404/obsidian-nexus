@@ -1,70 +1,48 @@
 shader_type sky;
 
-// Digital sky — grid, data streams, horizon glow, distant structures
-
-uniform vec4 horizon_color : source_color = vec4(0.025, 0.04, 0.14, 1.0);
-uniform vec4 zenith_color : source_color = vec4(0.005, 0.008, 0.025, 1.0);
-uniform vec4 grid_color : source_color = vec4(0.04, 0.08, 0.25, 1.0);
-uniform vec4 stream_color : source_color = vec4(0.05, 0.12, 0.5, 1.0);
-
-float hash(vec2 p) {
-    return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
-}
-
 void sky() {
     vec3 dir = EYEDIR;
     float elevation = dir.y;
     float azimuth = atan(dir.z, dir.x);
 
-    // Base gradient — horizon bright, zenith dark
-    float horizon_mask = 1.0 - abs(elevation);
-    horizon_mask = pow(max(horizon_mask, 0.0), 0.6);
-    vec3 sky = mix(zenith_color.rgb, horizon_color.rgb, horizon_mask);
+    // Base gradient — deep blue at zenith, brighter blue-purple at horizon
+    float h = 1.0 - abs(elevation);
+    h = pow(max(h, 0.0), 0.5);
+    vec3 sky = mix(vec3(0.01, 0.015, 0.04), vec3(0.06, 0.08, 0.25), h);
 
     // Warm horizon glow band
-    float glow = exp(-abs(elevation) * 10.0) * 0.5;
-    sky += vec3(0.05, 0.025, 0.1) * glow;
+    float glow = exp(-abs(elevation) * 8.0);
+    sky += vec3(0.08, 0.04, 0.15) * glow;
 
-    // Subtle orange accent on one side of horizon
-    float side_glow = exp(-abs(elevation) * 8.0) * max(0.0, cos(azimuth)) * 0.15;
-    sky += vec3(0.12, 0.05, 0.01) * side_glow;
+    // Orange accent on one side
+    float side = exp(-abs(elevation) * 6.0) * max(0.0, cos(azimuth)) * 0.2;
+    sky += vec3(0.15, 0.06, 0.02) * side;
 
-    // Spherical grid lines
+    // Grid lines across the sky
     float u = azimuth / 6.28318;
     float v = elevation * 0.5 + 0.5;
-    vec2 grid_uv = vec2(u, v) * 25.0;
-    vec2 grid_lines = abs(fract(grid_uv) - 0.5);
-    float grid = min(grid_lines.x, grid_lines.y);
-    float grid_mask = 1.0 - smoothstep(0.0, 0.015, grid);
-    grid_mask *= smoothstep(-0.05, 0.15, elevation) * smoothstep(0.85, 0.35, elevation);
-    sky += grid_color.rgb * grid_mask * 0.4;
+    vec2 guv = vec2(u, v) * 20.0;
+    vec2 gl = abs(fract(guv) - 0.5);
+    float grid = 1.0 - smoothstep(0.0, 0.02, min(gl.x, gl.y));
+    grid *= smoothstep(-0.05, 0.1, elevation) * smoothstep(0.85, 0.4, elevation);
+    sky += vec3(0.04, 0.07, 0.22) * grid * 0.5;
 
-    // Falling data streams in the sky
-    float col_id = floor(u * 80.0);
-    float stream_active = step(0.82, hash(vec2(col_id, 0.0)));
-    float scroll = v * 12.0 + TIME * 0.3 * (0.5 + hash(vec2(col_id, 1.0)));
-    float char_bright = (1.0 - fract(scroll)) * stream_active;
-    char_bright *= smoothstep(0.0, 0.25, elevation) * smoothstep(0.9, 0.45, elevation);
-    float stream_edge = abs(fract(u * 80.0) - 0.5);
-    char_bright *= 1.0 - smoothstep(0.0, 0.06, stream_edge);
-    sky += stream_color.rgb * char_bright * 0.5;
+    // Data streams falling in sky
+    float col_id = floor(u * 60.0);
+    float active = step(0.8, fract(sin(col_id * 127.1) * 43758.5));
+    float scroll = v * 10.0 + TIME * 0.25 * (0.5 + fract(sin(col_id * 311.7) * 43758.5));
+    float bright = (1.0 - fract(scroll)) * active;
+    bright *= smoothstep(0.05, 0.2, elevation) * smoothstep(0.9, 0.5, elevation);
+    float edge = abs(fract(u * 60.0) - 0.5);
+    bright *= 1.0 - smoothstep(0.0, 0.07, edge);
+    sky += vec3(0.06, 0.12, 0.45) * bright * 0.5;
 
-    // Distant horizon structures — silhouettes of far-off towers
-    float struct_id = floor(azimuth * 12.0 / 6.28318);
-    float struct_h = hash(vec2(struct_id, 6.0)) * 0.12 + 0.02;
-    float struct_active = step(0.3, hash(vec2(struct_id, 5.0)));
-    float on_struct = step(elevation, struct_h) * step(0.0, elevation) * struct_active;
-    float struct_w = abs(fract(azimuth * 12.0 / 6.28318) - 0.5);
-    on_struct *= 1.0 - smoothstep(0.0, 0.12, struct_w);
-    sky += vec3(0.02, 0.03, 0.1) * on_struct;
-
-    // Scattered "stars" — tiny bright data points
-    vec2 star_uv = vec2(u * 200.0, v * 100.0);
-    vec2 star_id = floor(star_uv);
-    float star = step(0.992, hash(star_id));
-    float star_flicker = 0.5 + 0.5 * sin(TIME * 2.0 + hash(star_id + vec2(1.0, 0.0)) * 20.0);
-    star *= star_flicker * smoothstep(0.1, 0.3, elevation);
-    sky += vec3(0.15, 0.2, 0.5) * star;
+    // Flickering data points (stars)
+    vec2 star_id = floor(vec2(u * 150.0, v * 80.0));
+    float star = step(0.99, fract(sin(dot(star_id, vec2(127.1, 311.7))) * 43758.5));
+    float flicker = 0.5 + 0.5 * sin(TIME * 3.0 + fract(sin(star_id.x * 43.7) * 100.0) * 20.0);
+    star *= flicker * smoothstep(0.1, 0.3, elevation);
+    sky += vec3(0.12, 0.18, 0.5) * star;
 
     COLOR = sky;
 }
