@@ -51,7 +51,7 @@ void fragment() {
 	float col_offset = hash(vec2(col_id, 1.0)) * 50.0;
 
 	// Scrolling Y — each column moves independently
-	float scroll_y = uv.y * char_rows + TIME * col_speed * char_rows * 0.1 + col_offset;
+	float scroll_y = uv.y * char_rows - TIME * col_speed * char_rows * 0.1 + col_offset;
 	float row_id = floor(scroll_y);
 	float cell_uv_y = fract(scroll_y);
 
@@ -65,7 +65,7 @@ void fragment() {
 	// Stream fade — characters near the "head" of a stream are brighter
 	// Create streams of ~8-15 characters with gaps
 	float stream_phase = hash(vec2(col_id, 2.0)) * 100.0;
-	float stream_scroll = TIME * col_speed * 0.5 + stream_phase;
+	float stream_scroll = -TIME * col_speed * 0.5 + stream_phase;
 	float stream_pos = fract(stream_scroll + uv.y * 2.0);
 	float stream_length = 0.3 + hash(vec2(col_id, 3.0)) * 0.4;
 	float in_stream = smoothstep(stream_length, stream_length - 0.05, stream_pos) * smoothstep(0.0, 0.02, stream_pos);
