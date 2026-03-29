@@ -87,7 +87,7 @@ func _on_note_hovered(note_id: String) -> void:
 	var vbox = hover_panel.get_node("VBox")
 	vbox.get_node("Title").text = note.title
 	vbox.get_node("Tags").text = ", ".join(note.tags) if note.tags.size() > 0 else "no tags"
-	var preview_text := note.content.substr(0, 200)
+	var preview_text: String = note.content.substr(0, 200)
 	if note.content.length() > 200:
 		preview_text += "..."
 	vbox.get_node("Preview").text = preview_text

@@ -69,18 +69,26 @@ func _build_hallway_geometry(layout: Dictionary) -> void:
 		var h: float = seg["height"]
 		var l: float = seg["length"]
 
-		# Floor
+		# Floor with collision
+		var floor_body := StaticBody3D.new()
+		floor_body.position = Vector3(0, 0, z + l / 2.0)
 		var floor_mesh := MeshInstance3D.new()
 		var floor_plane := PlaneMesh.new()
 		floor_plane.size = Vector2(w, l)
 		floor_mesh.mesh = floor_plane
-		floor_mesh.position = Vector3(0, 0, z + l / 2.0)
 		var floor_mat := StandardMaterial3D.new()
 		floor_mat.albedo_color = Color(0.03, 0.04, 0.08)
 		floor_mat.metallic = 0.9
 		floor_mat.roughness = 0.1
 		floor_mesh.set_surface_override_material(0, floor_mat)
-		add_child(floor_mesh)
+		floor_body.add_child(floor_mesh)
+		var floor_col := CollisionShape3D.new()
+		var floor_shape := BoxShape3D.new()
+		floor_shape.size = Vector3(w, 0.1, l)
+		floor_col.shape = floor_shape
+		floor_col.position = Vector3(0, -0.05, 0)
+		floor_body.add_child(floor_col)
+		add_child(floor_body)
 
 		# Ceiling
 		var ceil_mesh := MeshInstance3D.new()

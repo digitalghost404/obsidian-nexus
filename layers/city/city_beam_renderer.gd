@@ -3,15 +3,17 @@ extends Node3D
 var _mesh_instance: MeshInstance3D
 var _mesh: ImmediateMesh
 
+var _material: StandardMaterial3D
+
 func _ready() -> void:
 	_mesh = ImmediateMesh.new()
 	_mesh_instance = MeshInstance3D.new()
 	_mesh_instance.mesh = _mesh
-	var mat := StandardMaterial3D.new()
-	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	mat.albedo_color = Color(0.5, 0.4, 0.93, 0.25)
-	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	_mesh_instance.set_surface_override_material(0, mat)
+	_material = StandardMaterial3D.new()
+	_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	_material.albedo_color = Color(0.5, 0.4, 0.93, 0.25)
+	_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	_material.vertex_color_use_as_albedo = true
 	add_child(_mesh_instance)
 
 func build_beams(tower_positions: Dictionary, graph) -> void:
@@ -44,3 +46,4 @@ func build_beams(tower_positions: Dictionary, graph) -> void:
 				_mesh.surface_add_vertex(to_pos)
 
 	_mesh.surface_end()
+	_mesh_instance.set_surface_override_material(0, _material)

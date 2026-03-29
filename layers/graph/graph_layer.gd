@@ -25,7 +25,7 @@ func build_from_graph(graph) -> void:
 		child.queue_free()
 	_node_map.clear()
 
-	var all_ids := graph.get_all_note_ids()
+	var all_ids: Array = graph.get_all_note_ids()
 	if all_ids.is_empty():
 		return
 

@@ -20,17 +20,25 @@ func _build_city() -> void:
 	var city_size := Vector2(300.0, 300.0)
 	var districts := district_gen.generate(folder_sizes, city_size)
 
-	# Ground plane
-	var ground := MeshInstance3D.new()
+	# Ground plane with collision
+	var ground := StaticBody3D.new()
+	ground.position = Vector3(city_size.x / 2.0, 0, city_size.y / 2.0)
+	var ground_visual := MeshInstance3D.new()
 	var ground_mesh := PlaneMesh.new()
 	ground_mesh.size = city_size
-	ground.mesh = ground_mesh
-	ground.position = Vector3(city_size.x / 2.0, 0, city_size.y / 2.0)
+	ground_visual.mesh = ground_mesh
 	var ground_mat := StandardMaterial3D.new()
 	ground_mat.albedo_color = Color(0.02, 0.03, 0.06)
 	ground_mat.metallic = 0.8
 	ground_mat.roughness = 0.2
-	ground.set_surface_override_material(0, ground_mat)
+	ground_visual.set_surface_override_material(0, ground_mat)
+	ground.add_child(ground_visual)
+	var ground_col := CollisionShape3D.new()
+	var ground_shape := BoxShape3D.new()
+	ground_shape.size = Vector3(city_size.x, 0.1, city_size.y)
+	ground_col.shape = ground_shape
+	ground_col.position = Vector3(0, -0.05, 0)
+	ground.add_child(ground_col)
 	add_child(ground)
 
 	# Build districts
