@@ -380,6 +380,47 @@ func highlight_notes(note_ids: Array) -> void:
 func get_tower_positions() -> Dictionary:
 	return _tower_positions
 
+func teleport_to_note(note_id: String) -> void:
+	## Teleports the player camera to face the tower for the given note ID
+	if not _tower_positions.has(note_id):
+		push_warning("CityLayer: cannot teleport — note '%s' has no tower" % note_id)
+		return
+	var tower_pos: Vector3 = _tower_positions[note_id]
+	var cam: Node3D = LayerManager.current_camera
+	if not cam:
+		push_warning("CityLayer: cannot teleport — no camera")
+		return
+	# Position camera 10 units away from tower, facing it, at comfortable height
+	var offset: Vector3 = (cam.global_position - tower_pos).normalized() * 10.0
+	offset.y = 0
+	var target_pos: Vector3 = tower_pos + offset
+	target_pos.y = 3.0  # Eye height
+	cam.global_position = target_pos
+	cam.look_at(tower_pos + Vector3(0, tower_pos.y * 0.5, 0))
+	print("CityLayer: teleported to note '%s' at %s" % [note_id, str(target_pos)])
+
+func pulse_tower(note_id: String) -> void:
+	## Temporarily brightens the tower for the given note for ~3 seconds
+	if not _tower_map.has(note_id):
+		return
+	var tower: Node3D = _tower_map[note_id]
+	for child in tower.get_children():
+		if child is MeshInstance3D:
+			var mesh_child: MeshInstance3D = child as MeshInstance3D
+			var mat: Material = mesh_child.get_surface_override_material(0)
+			if mat is StandardMaterial3D:
+				var bright_mat: StandardMaterial3D = mat.duplicate() as StandardMaterial3D
+				bright_mat.emission_energy_multiplier = 15.0
+				mesh_child.set_surface_override_material(0, bright_mat)
+				# Revert after 3 seconds
+				var tween := create_tween()
+				tween.tween_interval(3.0)
+				tween.tween_callback(func():
+					if is_instance_valid(mesh_child):
+						mesh_child.set_surface_override_material(0, mat)
+				)
+			break
+
 func clear_highlights() -> void:
 	for note_id in _tower_map:
 		var tower: Node3D = _tower_map[note_id]

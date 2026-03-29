@@ -115,6 +115,9 @@ func _ready() -> void:
 	if _observations_enabled:
 		_observation_timer.start()
 
+	# Connect navigation command to handler
+	navigation_command.connect(_process_navigation_command)
+
 	# Health check all services
 	_check_services()
 
@@ -457,3 +460,28 @@ func get_mic_amplitude() -> float:
 func get_tts_player() -> AudioStreamPlayer:
 	## Returns the TTS AudioStreamPlayer for amplitude monitoring
 	return kokoro_client.get_audio_player()
+
+# ─── Navigation Commands ─────────────────────────────────────────
+
+func _process_navigation_command(target: String, action: String) -> void:
+	var city_layer: Node3D = LayerManager.current_scene
+	if not city_layer:
+		return
+
+	match action:
+		"teleport":
+			if city_layer.has_method("teleport_to_note"):
+				city_layer.teleport_to_note(target)
+		"highlight":
+			if city_layer.has_method("highlight_notes"):
+				# Search for matching notes
+				var matching_ids: Array = []
+				var lower_query: String = target.to_lower()
+				for note in VaultDataBus.graph.get_all_notes():
+					if lower_query in note.title.to_lower() or lower_query in note.content.to_lower():
+						matching_ids.append(note.id)
+				city_layer.highlight_notes(matching_ids)
+				print("NexusAI: highlighted %d notes matching '%s'" % [matching_ids.size(), target])
+		"pulse":
+			if city_layer.has_method("pulse_tower"):
+				city_layer.pulse_tower(target)
