@@ -6,7 +6,7 @@ var current_layer: Layer = Layer.CITY
 var current_scene: Node3D = null
 var current_camera: Node = null
 var _transition_overlay: ColorRect
-var _transition_material: ShaderMaterial
+var _is_transitioning: bool = false
 
 signal layer_changed(new_layer: Layer)
 signal transition_started()
@@ -29,11 +29,9 @@ func _ready() -> void:
 	canvas.layer = 10
 	_transition_overlay = ColorRect.new()
 	_transition_overlay.anchors_preset = Control.PRESET_FULL_RECT
+	_transition_overlay.color = Color(0.0, 0.0, 0.02, 1.0)
 	_transition_overlay.visible = false
-	var shader = load("res://shaders/layer_shift.gdshader")
-	_transition_material = ShaderMaterial.new()
-	_transition_material.shader = shader
-	_transition_overlay.material = _transition_material
+	_transition_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	canvas.add_child(_transition_overlay)
 	add_child(canvas)
 
@@ -47,13 +45,8 @@ func load_layer(layer: Layer, context: Dictionary = {}) -> void:
 		push_error("LayerManager: Failed to instantiate scene %s" % SCENES[layer])
 		return
 
-	# Set corridor note BEFORE adding to tree (so _ready can use it)
 	if layer == Layer.CORRIDOR and context.has("note_id"):
-		if scene_instance.has_method("build_corridor"):
-			# Set the var directly — script is attached
-			scene_instance.set("current_note_id", context["note_id"])
-		else:
-			push_error("LayerManager: Corridor scene has no build_corridor method — script may have failed to load")
+		scene_instance.set("current_note_id", context["note_id"])
 
 	var cam_res = load(CAMERAS[layer])
 	var cam_instance = cam_res.instantiate()
@@ -74,37 +67,51 @@ func load_layer(layer: Layer, context: Dictionary = {}) -> void:
 	current_scene = scene_instance
 	current_camera = cam_instance
 	current_layer = layer
+	print("LayerManager: loaded %s" % Layer.keys()[layer])
 	layer_changed.emit(layer)
 
 func transition_to(target_layer: Layer, context: Dictionary = {}) -> void:
+	if _is_transitioning:
+		return
+	_is_transitioning = true
 	transition_started.emit()
 
+	# Fade to black
+	_transition_overlay.color = Color(0, 0, 0.02, 0)
 	_transition_overlay.visible = true
 	var tween := create_tween()
-	tween.tween_method(func(v): _transition_material.set_shader_parameter("progress", v), 0.0, 1.0, 0.75)
+	tween.tween_property(_transition_overlay, "color:a", 1.0, 0.4)
 	await tween.finished
 
+	# Swap scenes
 	if current_scene:
 		current_scene.queue_free()
 	if current_camera:
 		current_camera.queue_free()
 
 	await get_tree().process_frame
+	await get_tree().process_frame
 
 	load_layer(target_layer, context)
 
+	# Wait for scene to initialize
+	await get_tree().process_frame
+
+	# Fade from black
 	var tween2 := create_tween()
-	tween2.tween_method(func(v): _transition_material.set_shader_parameter("progress", v), 1.0, 0.0, 0.75)
+	tween2.tween_property(_transition_overlay, "color:a", 0.0, 0.6)
 	await tween2.finished
 	_transition_overlay.visible = false
 
+	_is_transitioning = false
 	transition_completed.emit()
 
 func _unhandled_input(event: InputEvent) -> void:
+	if _is_transitioning:
+		return
 	if event is InputEventKey and event.pressed:
 		if event.keycode == KEY_SPACE:
 			if current_layer == Layer.CORRIDOR:
-				var ctx := {"camera_position": Vector3(60, 2, 60)}
-				transition_to(Layer.CITY, ctx)
+				transition_to(Layer.CITY, {"camera_position": Vector3(60, 2, 60)})
 			elif current_layer == Layer.CITY:
 				transition_to(Layer.GRAPH)
