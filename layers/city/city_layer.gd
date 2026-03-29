@@ -365,7 +365,7 @@ func highlight_notes(note_ids: Array) -> void:
 	for note_id in _tower_map:
 		var tower: Node3D = _tower_map[note_id]
 		var is_highlighted: bool = note_id in note_ids
-		# Change ALL MeshInstance3D children, not just the first one
+		# Change ALL children — make highlighted towers very bright, dimmed nearly invisible
 		for child in tower.get_children():
 			if child is MeshInstance3D:
 				var mesh_child: MeshInstance3D = child as MeshInstance3D
@@ -373,17 +373,22 @@ func highlight_notes(note_ids: Array) -> void:
 				if mat is ShaderMaterial:
 					var smat: ShaderMaterial = mat.duplicate() as ShaderMaterial
 					if is_highlighted:
-						smat.set_shader_parameter("emission_strength", 8.0)
+						smat.set_shader_parameter("emission_strength", 15.0)
 					else:
-						smat.set_shader_parameter("emission_strength", 0.2)
+						smat.set_shader_parameter("emission_strength", 0.05)
 					mesh_child.set_surface_override_material(0, smat)
 				elif mat is StandardMaterial3D:
 					var std_mat: StandardMaterial3D = mat.duplicate() as StandardMaterial3D
 					if is_highlighted:
-						std_mat.emission_energy_multiplier = 12.0
+						std_mat.emission_energy_multiplier = 20.0
 					else:
-						std_mat.emission_energy_multiplier = 0.1
+						std_mat.emission_energy_multiplier = 0.02
 					mesh_child.set_surface_override_material(0, std_mat)
+			elif child is Label3D:
+				if is_highlighted:
+					child.modulate.a = 1.0
+				else:
+					child.modulate.a = 0.05
 
 func get_tower_positions() -> Dictionary:
 	return _tower_positions
