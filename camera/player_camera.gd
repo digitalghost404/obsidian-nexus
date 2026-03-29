@@ -6,6 +6,7 @@ extends CharacterBody3D
 @export var camera_height: float = 1.7
 
 var _mouse_captured: bool = false
+var _spawn_frames: int = 0  # Grace period before enabling gravity
 
 @onready var camera: Camera3D = $Camera3D
 
@@ -13,6 +14,7 @@ func _ready() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	_mouse_captured = true
 	camera.position.y = camera_height
+	_spawn_frames = 0
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion and _mouse_captured:
@@ -26,6 +28,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED if _mouse_captured else Input.MOUSE_MODE_VISIBLE
 
 func _physics_process(delta: float) -> void:
+	_spawn_frames += 1
+
 	var input_dir := Vector3.ZERO
 	if Input.is_key_pressed(KEY_W):
 		input_dir.z -= 1
@@ -43,8 +47,12 @@ func _physics_process(delta: float) -> void:
 	velocity.x = input_dir.x * speed
 	velocity.z = input_dir.z * speed
 
-	if not is_on_floor():
-		velocity.y -= 20.0 * delta
+	# Don't apply gravity for the first 10 frames — let physics register floor collision
+	if _spawn_frames > 10:
+		if not is_on_floor():
+			velocity.y -= 20.0 * delta
+		else:
+			velocity.y = 0
 	else:
 		velocity.y = 0
 

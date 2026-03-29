@@ -94,7 +94,9 @@ func transition_to(target_layer: Layer, context: Dictionary = {}) -> void:
 
 	load_layer(target_layer, context)
 
-	# Wait for scene to initialize
+	# Wait for scene to fully initialize (physics needs multiple frames)
+	await get_tree().process_frame
+	await get_tree().process_frame
 	await get_tree().process_frame
 
 	# Fade from black
