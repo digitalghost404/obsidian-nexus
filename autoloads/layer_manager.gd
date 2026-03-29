@@ -39,13 +39,28 @@ func _ready() -> void:
 
 func load_layer(layer: Layer, context: Dictionary = {}) -> void:
 	var scene_res = load(SCENES[layer])
-	var scene_instance = scene_res.instantiate()
+	if not scene_res:
+		push_error("LayerManager: Failed to load scene %s" % SCENES[layer])
+		return
+	var scene_instance: Node3D = scene_res.instantiate() as Node3D
+	if not scene_instance:
+		push_error("LayerManager: Failed to instantiate scene %s" % SCENES[layer])
+		return
 
+	# Set corridor note BEFORE adding to tree (so _ready can use it)
 	if layer == Layer.CORRIDOR and context.has("note_id"):
-		scene_instance.current_note_id = context["note_id"]
+		if scene_instance.has_method("build_corridor"):
+			# Set the var directly — script is attached
+			scene_instance.set("current_note_id", context["note_id"])
+		else:
+			push_error("LayerManager: Corridor scene has no build_corridor method — script may have failed to load")
 
 	var cam_res = load(CAMERAS[layer])
 	var cam_instance = cam_res.instantiate()
+
+	var main_node: Node = get_tree().root.get_node("Main")
+	main_node.add_child(scene_instance)
+	main_node.add_child(cam_instance)
 
 	if context.has("camera_position"):
 		cam_instance.global_position = context["camera_position"]
@@ -55,9 +70,6 @@ func load_layer(layer: Layer, context: Dictionary = {}) -> void:
 		cam_instance.position = Vector3(60, 2, 60)
 	elif layer == Layer.CORRIDOR:
 		cam_instance.position = Vector3(0, 1, 2)
-
-	get_tree().root.get_node("Main").add_child(scene_instance)
-	get_tree().root.get_node("Main").add_child(cam_instance)
 
 	current_scene = scene_instance
 	current_camera = cam_instance
