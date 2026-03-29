@@ -18,7 +18,7 @@ func load_city() -> void:
 	main_node.add_child(scene_instance)
 	main_node.add_child(cam_instance)
 
-	cam_instance.position = Vector3(60, 2, 40)  # South of the hub, facing toward it
+	cam_instance.position = Vector3(60, 2, 27)  # Edge of exclusion zone, looking toward hub
 
 	current_scene = scene_instance
 	current_camera = cam_instance
