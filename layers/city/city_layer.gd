@@ -101,6 +101,9 @@ func _build_city() -> void:
 		var spacing_x: float = rect.size.x / maxf(cols, 1)
 		var spacing_z: float = rect.size.y / maxf(ceili(float(notes.size()) / cols), 1)
 
+		var hub_center := Vector2(city_size.x / 2.0, city_size.y / 2.0)
+		var hub_exclusion_radius := 33.0  # Keep towers outside the ring zone
+
 		for i in range(notes.size()):
 			var note: RefCounted = notes[i]
 			var col: int = i % cols
@@ -109,6 +112,13 @@ func _build_city() -> void:
 				rect.position.x + col * spacing_x + spacing_x / 2.0,
 				rect.position.y + row * spacing_z + spacing_z / 2.0
 			)
+			# Push towers out of the hub exclusion zone
+			var dist_to_hub: float = pos_2d.distance_to(hub_center)
+			if dist_to_hub < hub_exclusion_radius:
+				var dir: Vector2 = (pos_2d - hub_center).normalized()
+				if dir.length() < 0.01:
+					dir = Vector2(1, 0)
+				pos_2d = hub_center + dir * (hub_exclusion_radius + 2.0)
 			var connections: int = graph.get_connection_count(note.id)
 			var tower: Node3D = TowerBuilder.build_tower(note, connections, pos_2d)
 			add_child(tower)
