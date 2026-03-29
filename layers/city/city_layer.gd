@@ -382,10 +382,32 @@ func get_tower_positions() -> Dictionary:
 
 func teleport_to_note(note_id: String) -> void:
 	## Teleports the player camera to face the tower for the given note ID
-	if not _tower_positions.has(note_id):
+	## Tries exact match first, then fuzzy match on tower keys
+	var matched_id: String = note_id
+	if not _tower_positions.has(matched_id):
+		# Fuzzy match — try partial ID match
+		var lower: String = note_id.to_lower()
+		for key in _tower_positions:
+			if lower in key.to_lower() or key.to_lower() in lower:
+				matched_id = key
+				break
+	if not _tower_positions.has(matched_id):
+		# Word match — all words appear in key
+		var words: PackedStringArray = note_id.to_lower().split(" ", false)
+		for key in _tower_positions:
+			var lower_key: String = key.to_lower()
+			var all_match: bool = true
+			for word in words:
+				if word not in lower_key:
+					all_match = false
+					break
+			if all_match:
+				matched_id = key
+				break
+	if not _tower_positions.has(matched_id):
 		push_warning("CityLayer: cannot teleport — note '%s' has no tower" % note_id)
 		return
-	var tower_pos: Vector3 = _tower_positions[note_id]
+	var tower_pos: Vector3 = _tower_positions[matched_id]
 	var cam: Node3D = LayerManager.current_camera
 	if not cam:
 		push_warning("CityLayer: cannot teleport — no camera")

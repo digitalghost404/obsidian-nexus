@@ -298,8 +298,10 @@ func _on_ollama_complete(full_text: String) -> void:
 
 	# Execute navigation commands
 	if not navigate_to.is_empty():
+		print("NexusAI: navigating to '%s'" % navigate_to)
 		navigation_command.emit(navigate_to, "teleport")
 	if not highlight_query.is_empty():
+		print("NexusAI: highlighting '%s'" % highlight_query)
 		navigation_command.emit(highlight_query, "highlight")
 
 	# Pulse referenced towers

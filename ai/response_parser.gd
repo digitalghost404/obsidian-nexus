@@ -3,31 +3,31 @@ class_name ResponseParser
 
 ## Parses LLM response text to extract:
 ## - [[note title]] references (resolved to note IDs via vault graph)
-## - NAVIGATE:note_id commands
-## - HIGHLIGHT:search_query commands
+## - NAVIGATE: commands (various formats the LLM might use)
+## - HIGHLIGHT: commands
 
 var _wikilink_regex: RegEx
 var _navigate_regex: RegEx
+var _navigate_noteid_regex: RegEx
 var _highlight_regex: RegEx
 
 func _init() -> void:
 	_wikilink_regex = RegEx.new()
 	_wikilink_regex.compile("\\[\\[([^\\]]+?)\\]\\]")
 
+	# Match NAVIGATE: followed by anything until end of line
 	_navigate_regex = RegEx.new()
-	_navigate_regex.compile("NAVIGATE:([^\\s]+(?:\\s[^\\s]+)*?)\\s*$")
+	_navigate_regex.compile("(?m)NAVIGATE:\\s*(.+?)\\s*$")
 
+	# Match note_id("...") format the LLM sometimes uses
+	_navigate_noteid_regex = RegEx.new()
+	_navigate_noteid_regex.compile('note_id\\("([^"]+)"\\)')
+
+	# Match HIGHLIGHT: followed by anything until end of line
 	_highlight_regex = RegEx.new()
-	_highlight_regex.compile("HIGHLIGHT:([^\\s]+(?:\\s[^\\s]+)*?)\\s*$")
+	_highlight_regex.compile("(?m)HIGHLIGHT:\\s*(.+?)\\s*$")
 
 func parse(response_text: String, vault_graph: NoteGraph) -> Dictionary:
-	## Returns:
-	## {
-	##   "text": String,                # Cleaned response (commands stripped)
-	##   "referenced_notes": Array,     # Array of note IDs found via [[title]]
-	##   "navigate_to": String,         # Note ID to navigate to (empty if none)
-	##   "highlight_query": String,     # Search query for highlighting (empty if none)
-	## }
 	var result: Dictionary = {
 		"text": "",
 		"referenced_notes": [],
@@ -37,19 +37,31 @@ func parse(response_text: String, vault_graph: NoteGraph) -> Dictionary:
 
 	var text: String = response_text.strip_edges()
 
-	# Extract NAVIGATE: command (must be at end of response)
-	var nav_match: RegExMatch = _navigate_regex.search(text)
-	if nav_match:
-		var nav_target: String = nav_match.get_string(1).strip_edges()
-		result["navigate_to"] = _resolve_note_id(nav_target, vault_graph)
-		# Remove the command from text
-		text = text.substr(0, nav_match.get_start()).strip_edges()
+	# Extract ALL NAVIGATE: commands (LLM might put multiple)
+	var nav_matches: Array[RegExMatch] = _navigate_regex.search_all(text)
+	for nav_match in nav_matches:
+		var nav_raw: String = nav_match.get_string(1).strip_edges()
+		# Check if it uses note_id("...") format
+		var noteid_match: RegExMatch = _navigate_noteid_regex.search(nav_raw)
+		if noteid_match:
+			var nav_target: String = noteid_match.get_string(1).strip_edges()
+			if result["navigate_to"].is_empty():
+				result["navigate_to"] = _resolve_note_id(nav_target, vault_graph)
+		else:
+			# Raw text after NAVIGATE:
+			var nav_target: String = _clean_command_value(nav_raw)
+			if result["navigate_to"].is_empty():
+				result["navigate_to"] = _resolve_note_id(nav_target, vault_graph)
+		# Remove the command line from text
+		text = text.replace(nav_match.get_string(), "").strip_edges()
 
-	# Extract HIGHLIGHT: command (must be at end of response, or before NAVIGATE)
-	var hl_match: RegExMatch = _highlight_regex.search(text)
-	if hl_match:
-		result["highlight_query"] = hl_match.get_string(1).strip_edges()
-		text = text.substr(0, hl_match.get_start()).strip_edges()
+	# Extract HIGHLIGHT: commands
+	var hl_matches: Array[RegExMatch] = _highlight_regex.search_all(text)
+	for hl_match in hl_matches:
+		var hl_raw: String = hl_match.get_string(1).strip_edges()
+		if result["highlight_query"].is_empty():
+			result["highlight_query"] = _clean_command_value(hl_raw)
+		text = text.replace(hl_match.get_string(), "").strip_edges()
 
 	# Extract [[note title]] references
 	var referenced_notes: Array = []
@@ -65,25 +77,69 @@ func parse(response_text: String, vault_graph: NoteGraph) -> Dictionary:
 
 	return result
 
+func _clean_command_value(raw: String) -> String:
+	## Strip quotes, note_id() wrapper, and other LLM formatting artifacts
+	var cleaned: String = raw.strip_edges()
+	# Remove note_id("...") wrapper
+	var noteid_match: RegExMatch = _navigate_noteid_regex.search(cleaned)
+	if noteid_match:
+		cleaned = noteid_match.get_string(1)
+	# Remove surrounding quotes
+	if cleaned.begins_with("\"") and cleaned.ends_with("\""):
+		cleaned = cleaned.substr(1, cleaned.length() - 2)
+	if cleaned.begins_with("'") and cleaned.ends_with("'"):
+		cleaned = cleaned.substr(1, cleaned.length() - 2)
+	return cleaned.strip_edges()
+
 func _resolve_note_id(title_or_id: String, vault_graph: NoteGraph) -> String:
 	## Tries to find a note matching the given title or ID.
-	## First tries exact ID match, then title match (case-insensitive).
+	## Handles: exact ID, exact title, partial title, filename-only, folder/filename
+
+	var search: String = title_or_id.strip_edges()
+	if search.is_empty():
+		return ""
 
 	# Direct ID match
-	var note: RefCounted = vault_graph.get_note(title_or_id)
+	var note: RefCounted = vault_graph.get_note(search)
 	if note:
-		return title_or_id
+		return search
 
-	# Case-insensitive title search
-	var lower_title: String = title_or_id.to_lower()
+	# Case-insensitive exact title match
+	var lower_search: String = search.to_lower()
 	for n in vault_graph.get_all_notes():
-		if n.title.to_lower() == lower_title:
+		if n.title.to_lower() == lower_search:
 			return n.id
 
-	# Partial match — title contains the search string
+	# Filename-only match (strip folder path if present)
+	var filename: String = search.get_file() if "/" in search else search
+	var lower_filename: String = filename.to_lower()
 	for n in vault_graph.get_all_notes():
-		if lower_title in n.title.to_lower():
+		var n_filename: String = n.id.get_file()
+		if n_filename.to_lower() == lower_filename:
 			return n.id
 
-	# Not found — return the raw input so callers can decide what to do
-	return title_or_id
+	# Partial title match (search string contained in title)
+	for n in vault_graph.get_all_notes():
+		if lower_search in n.title.to_lower():
+			return n.id
+
+	# Partial ID match (search string contained in ID)
+	for n in vault_graph.get_all_notes():
+		if lower_search in n.id.to_lower():
+			return n.id
+
+	# Word-based match — all words in search appear in the title
+	var words: PackedStringArray = lower_search.split(" ", false)
+	if words.size() > 1:
+		for n in vault_graph.get_all_notes():
+			var lower_title: String = n.title.to_lower()
+			var all_match: bool = true
+			for word in words:
+				if word not in lower_title:
+					all_match = false
+					break
+			if all_match:
+				return n.id
+
+	print("ResponseParser: could not resolve '%s' to any note" % search)
+	return ""
