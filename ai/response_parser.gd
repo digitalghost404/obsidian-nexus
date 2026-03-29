@@ -84,11 +84,17 @@ func _clean_command_value(raw: String) -> String:
 	var noteid_match: RegExMatch = _navigate_noteid_regex.search(cleaned)
 	if noteid_match:
 		cleaned = noteid_match.get_string(1)
+	# Remove "note_id " prefix (without parens — LLM sometimes writes this)
+	if cleaned.begins_with("note_id "):
+		cleaned = cleaned.substr(8)
 	# Remove surrounding quotes
 	if cleaned.begins_with("\"") and cleaned.ends_with("\""):
 		cleaned = cleaned.substr(1, cleaned.length() - 2)
 	if cleaned.begins_with("'") and cleaned.ends_with("'"):
 		cleaned = cleaned.substr(1, cleaned.length() - 2)
+	# Remove trailing punctuation the LLM might add
+	while cleaned.ends_with(".") or cleaned.ends_with(",") or cleaned.ends_with(";"):
+		cleaned = cleaned.substr(0, cleaned.length() - 1)
 	return cleaned.strip_edges()
 
 func _resolve_note_id(title_or_id: String, vault_graph: NoteGraph) -> String:
