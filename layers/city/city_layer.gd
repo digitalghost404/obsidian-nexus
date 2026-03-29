@@ -74,9 +74,10 @@ func _build_city() -> void:
 		var wall_thick := 0.3
 		var w_mat := ShaderMaterial.new()
 		w_mat.shader = wall_shader
-		w_mat.set_shader_parameter("rain_color", Color(0.08, 0.2, 0.7, 0.5))
-		w_mat.set_shader_parameter("scroll_speed", 1.0)
-		w_mat.set_shader_parameter("columns", 30.0)
+		w_mat.set_shader_parameter("rain_color", Color(0.06, 0.18, 0.65, 0.6))
+		w_mat.set_shader_parameter("scroll_speed", 1.2)
+		w_mat.set_shader_parameter("columns", 50.0)
+		w_mat.set_shader_parameter("char_rows", 60.0)
 		w_mat.set_shader_parameter("brightness_variation", 0.7)
 		# South wall
 		var s_wall := MeshInstance3D.new()
