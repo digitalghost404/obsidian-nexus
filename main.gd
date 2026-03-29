@@ -22,4 +22,5 @@ func _ready() -> void:
 
 func _on_vault_loaded() -> void:
 	print("Vault loaded: %d notes, %d links" % [VaultDataBus.graph.get_note_count(), VaultDataBus.graph.get_link_count()])
-	LayerManager.load_layer(LayerManager.Layer.CITY)
+	# DEBUG: load corridor directly to test if it renders at all
+	LayerManager.load_layer(LayerManager.Layer.CORRIDOR, {"note_id": "ai-engineering/Building AI Agents"})
