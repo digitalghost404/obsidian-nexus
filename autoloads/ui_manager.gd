@@ -144,11 +144,19 @@ func _create_note_viewer() -> Control:
 	sep.add_theme_stylebox_override("separator", StyleBoxLine.new())
 	vbox.add_child(sep)
 
-	# Body placeholder — gets replaced dynamically in _open_viewer
-	var body_placeholder := Control.new()
-	body_placeholder.name = "Body"
-	body_placeholder.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	vbox.add_child(body_placeholder)
+	# Body — ScrollContainer with a Label inside, content set in _open_viewer
+	var body_scroll := ScrollContainer.new()
+	body_scroll.name = "BodyScroll"
+	body_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	body_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var body_label := Label.new()
+	body_label.name = "BodyLabel"
+	body_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	body_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	body_label.add_theme_font_size_override("font_size", 14)
+	body_label.add_theme_color_override("font_color", Color(0.75, 0.78, 0.88))
+	body_scroll.add_child(body_label)
+	vbox.add_child(body_scroll)
 
 	# Links section
 	var links_sep := HSeparator.new()
@@ -206,32 +214,12 @@ func _open_viewer(note_id: String) -> void:
 	content.get_node("MetaRow/Connections").text = "%d connections" % conns
 	content.get_node("MetaRow/Folder").text = note.folder if not note.folder.is_empty() else "root"
 
-	# Body content — use a plain Label inside a ScrollContainer instead
-	# Remove old Body if exists, replace with fresh one
-	var old_body = content.get_node_or_null("Body")
-	if old_body:
-		old_body.queue_free()
-		await get_tree().process_frame
-
-	var scroll := ScrollContainer.new()
-	scroll.name = "Body"
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-
-	var label := Label.new()
-	label.text = note.content
-	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	label.add_theme_font_size_override("font_size", 14)
-	label.add_theme_color_override("font_color", Color(0.75, 0.78, 0.88))
-	scroll.add_child(label)
-
-	# Insert before links section
-	var links_idx: int = content.get_node("LinksHeader").get_index()
-	content.add_child(scroll)
-	content.move_child(scroll, links_idx - 1)
-
-	print("Viewer: showing '%s' — %d chars" % [note.title, note.content.length()])
+	# Body content — just update the existing label text
+	var body_label: Label = content.get_node("BodyScroll/BodyLabel")
+	body_label.text = note.content
+	# Reset scroll to top
+	var body_scroll: ScrollContainer = content.get_node("BodyScroll")
+	body_scroll.scroll_vertical = 0
 
 	# Links
 	var links_flow: FlowContainer = content.get_node("Links")
