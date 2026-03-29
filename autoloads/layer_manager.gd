@@ -18,7 +18,7 @@ func load_city() -> void:
 	main_node.add_child(scene_instance)
 	main_node.add_child(cam_instance)
 
-	cam_instance.position = Vector3(60, 2, 60)
+	cam_instance.position = Vector3(60, 2, 40)  # South of the hub, facing toward it
 
 	current_scene = scene_instance
 	current_camera = cam_instance
