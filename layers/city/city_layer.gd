@@ -68,6 +68,14 @@ func _build_city() -> void:
 	ground.add_child(ground_col)
 	add_child(ground)
 
+	# Central Nexus Hub
+	var hub_script: GDScript = load("res://layers/city/nexus_hub.gd") as GDScript
+	var hub := Node3D.new()
+	hub.set_script(hub_script)
+	hub.position = Vector3(city_size.x / 2.0, 0, city_size.y / 2.0)
+	hub.name = "NexusHub"
+	add_child(hub)
+
 	# Build districts
 	for district in districts:
 		var folder: String = district["folder"]

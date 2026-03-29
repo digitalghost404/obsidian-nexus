@@ -2,10 +2,8 @@ extends CanvasLayer
 
 var hover_panel: PanelContainer
 var note_viewer: Control
-var map_overlay: Control
 var _crosshair: ColorRect
 var _viewer_open: bool = false
-var _map_open: bool = false
 
 func _ready() -> void:
 	layer = 5
@@ -25,10 +23,6 @@ func _ready() -> void:
 	add_child(note_viewer)
 	note_viewer.hide()
 
-	map_overlay = _create_map_overlay()
-	add_child(map_overlay)
-	map_overlay.hide()
-
 	InputManager.note_hovered.connect(_on_note_hovered)
 	InputManager.note_unhovered.connect(_on_note_unhovered)
 	InputManager.note_clicked.connect(_on_note_clicked)
@@ -41,89 +35,10 @@ func _unhandled_input(event: InputEvent) -> void:
 			if _viewer_open:
 				_close_viewer()
 				get_viewport().set_input_as_handled()
-			elif _map_open:
-				_close_map()
-				get_viewport().set_input_as_handled()
 		elif event.keycode == KEY_M or event.keycode == KEY_TAB:
 			if not _viewer_open:
-				if _map_open:
-					_close_map()
-				else:
-					_open_map()
+				_on_search_requested()
 				get_viewport().set_input_as_handled()
-
-# ============================================================
-# MAP OVERLAY — top-down city map with teleport
-# ============================================================
-
-func _create_map_overlay() -> Control:
-	var root := Control.new()
-	root.name = "MapOverlay"
-	root.anchors_preset = Control.PRESET_FULL_RECT
-	root.mouse_filter = Control.MOUSE_FILTER_STOP
-
-	# Backdrop
-	var backdrop := ColorRect.new()
-	backdrop.anchors_preset = Control.PRESET_FULL_RECT
-	backdrop.color = Color(0.0, 0.005, 0.015, 0.9)
-	root.add_child(backdrop)
-
-	# Title
-	var title := Label.new()
-	title.name = "MapTitle"
-	title.text = "NEXUS MAP — Click to teleport | ESC to close"
-	title.add_theme_font_size_override("font_size", 16)
-	title.add_theme_color_override("font_color", Color(0.5, 0.6, 0.9))
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.position = Vector2(0, 10)
-	title.anchors_preset = Control.PRESET_TOP_WIDE
-	root.add_child(title)
-
-	# Map canvas — draws dots for notes
-	var map_canvas := Control.new()
-	map_canvas.name = "MapCanvas"
-	map_canvas.anchors_preset = Control.PRESET_FULL_RECT
-	map_canvas.mouse_filter = Control.MOUSE_FILTER_STOP
-	map_canvas.set_script(load("res://ui/map_canvas.gd"))
-	root.add_child(map_canvas)
-
-	return root
-
-func _open_map() -> void:
-	_map_open = true
-	hover_panel.hide()
-	_crosshair.hide()
-	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-
-	# Get tower positions from city layer
-	var city = LayerManager.current_scene
-	if city and city.has_method("get_tower_positions"):
-		var positions: Dictionary = city.get_tower_positions()
-		var canvas = map_overlay.get_node("MapCanvas")
-		if canvas.has_method("set_data"):
-			canvas.set_data(positions, VaultDataBus.graph)
-
-	map_overlay.show()
-
-func _close_map() -> void:
-	_map_open = false
-	map_overlay.hide()
-	_crosshair.show()
-	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
-
-func _teleport_to_note(note_id: String) -> void:
-	var city = LayerManager.current_scene
-	if not city:
-		return
-	if city.has_method("get_tower_positions"):
-		var positions: Dictionary = city.get_tower_positions()
-		if positions.has(note_id):
-			var pos: Vector3 = positions[note_id]
-			var cam = LayerManager.current_camera
-			if cam:
-				cam.global_position = Vector3(pos.x, 2.0, pos.z)
-				print("Teleported to: %s" % note_id)
-	_close_map()
 
 # ============================================================
 # NOTE VIEWER — cyberpunk holographic overlay
@@ -353,7 +268,7 @@ func _create_hover_panel() -> PanelContainer:
 # ============================================================
 
 func _on_note_hovered(note_id: String) -> void:
-	if _viewer_open or _map_open:
+	if _viewer_open:
 		return
 	var note = VaultDataBus.graph.get_note(note_id)
 	if not note:
@@ -372,17 +287,18 @@ func _on_note_hovered(note_id: String) -> void:
 	hover_panel.show()
 
 func _on_note_unhovered() -> void:
-	if _viewer_open or _map_open:
+	if _viewer_open:
 		return
 	hover_panel.hide()
 
 func _on_note_clicked(note_id: String) -> void:
-	if _map_open:
-		return
-	_open_viewer(note_id)
+	if note_id == "__nexus_hub__":
+		_on_search_requested()
+	else:
+		_open_viewer(note_id)
 
 func _on_search_requested() -> void:
-	if _viewer_open or _map_open:
+	if _viewer_open:
 		return
 	var search_dialog := AcceptDialog.new()
 	search_dialog.title = "Search Vault"
@@ -405,7 +321,7 @@ func _on_search_requested() -> void:
 	)
 
 func _on_tag_filter_requested() -> void:
-	if _viewer_open or _map_open:
+	if _viewer_open:
 		return
 	var tag_dialog := AcceptDialog.new()
 	tag_dialog.title = "Filter by Tag"
