@@ -17,6 +17,10 @@ func _ready() -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	# Only process mouse look when cursor is captured (not when UI overlay is open)
+	if event is InputEventKey and event.pressed and event.keycode == KEY_P:
+		print("POS: position=%s rotation=%s" % [str(global_position), str(rotation)])
+		return
+
 	if Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
 		return
 
