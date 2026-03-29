@@ -20,6 +20,7 @@ window/vsync/vsync_mode=0
 [autoload]
 
 VaultDataBus="*res://autoloads/vault_data_bus.gd"
+LayerManager="*res://autoloads/layer_manager.gd"
 
 [rendering]
 
