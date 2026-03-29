@@ -518,12 +518,12 @@ func _process(delta: float) -> void:
 		var current_radius: float = ring.get_meta("radius", 1.0)
 		current_radius += PULSE_SPEED * delta
 		ring.set_meta("radius", current_radius)
-		# Update torus size — ensure inner < outer
+		# Update torus size — set outer FIRST to avoid inner==outer during update
 		var tmesh := ring.mesh as TorusMesh
 		var inner: float = maxf(current_radius - 0.2, 0.1)
-		var outer: float = inner + 0.4
+		var outer: float = inner + 0.5
+		tmesh.outer_radius = outer  # Set outer first — prevents momentary inner==outer
 		tmesh.inner_radius = inner
-		tmesh.outer_radius = outer
 		# Fade out as it expands
 		var alpha: float = 1.0 - (current_radius / PULSE_MAX_RADIUS)
 		var mat: StandardMaterial3D = ring.get_surface_override_material(0)

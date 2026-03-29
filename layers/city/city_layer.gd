@@ -365,6 +365,7 @@ func highlight_notes(note_ids: Array) -> void:
 	for note_id in _tower_map:
 		var tower: Node3D = _tower_map[note_id]
 		var is_highlighted: bool = note_id in note_ids
+		# Change ALL MeshInstance3D children, not just the first one
 		for child in tower.get_children():
 			if child is MeshInstance3D:
 				var mesh_child: MeshInstance3D = child as MeshInstance3D
@@ -383,7 +384,6 @@ func highlight_notes(note_ids: Array) -> void:
 					else:
 						std_mat.emission_energy_multiplier = 0.1
 					mesh_child.set_surface_override_material(0, std_mat)
-				break
 
 func get_tower_positions() -> Dictionary:
 	return _tower_positions
@@ -424,10 +424,16 @@ func teleport_to_note(note_id: String) -> void:
 	var offset: Vector3 = (cam.global_position - tower_pos).normalized() * 10.0
 	offset.y = 0
 	var target_pos: Vector3 = tower_pos + offset
-	target_pos.y = 3.0  # Eye height
+	target_pos.y = 2.0  # Eye height
 	cam.global_position = target_pos
+	# Reset velocity to prevent falling
+	if cam is CharacterBody3D:
+		cam.velocity = Vector3.ZERO
+		# Reset spawn grace period so gravity doesn't kick in immediately
+		if "_spawn_frames" in cam:
+			cam._spawn_frames = 0
 	cam.look_at(tower_pos + Vector3(0, tower_pos.y * 0.5, 0))
-	print("CityLayer: teleported to note '%s' at %s" % [note_id, str(target_pos)])
+	print("CityLayer: teleported to note '%s' at %s" % [matched_id, str(target_pos)])
 
 func pulse_tower(note_id: String) -> void:
 	## Temporarily brightens the tower for the given note for ~3 seconds
