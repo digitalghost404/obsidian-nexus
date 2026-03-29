@@ -4,6 +4,9 @@ var hover_panel: PanelContainer
 var note_viewer: Control
 var _crosshair: ColorRect
 var _viewer_open: bool = false
+var ai_response_panel: Control
+var listening_indicator: Control
+var ai_status_bar: Control
 
 func _ready() -> void:
 	layer = 5
@@ -46,6 +49,31 @@ func _ready() -> void:
 	InputManager.search_requested.connect(_on_search_requested)
 	InputManager.tag_filter_requested.connect(_on_tag_filter_requested)
 
+	# AI Response Panel
+	var ai_panel_scene: PackedScene = load("res://ui/ai_response_panel.tscn") as PackedScene
+	if ai_panel_scene:
+		ai_response_panel = ai_panel_scene.instantiate()
+		add_child(ai_response_panel)
+		ai_response_panel.update_layout(get_viewport().get_visible_rect().size)
+
+	# Listening Indicator
+	var indicator_script: GDScript = load("res://ui/listening_indicator.gd") as GDScript
+	if indicator_script:
+		listening_indicator = Control.new()
+		listening_indicator.set_script(indicator_script)
+		listening_indicator.name = "ListeningIndicator"
+		add_child(listening_indicator)
+
+	# AI Status Bar — positioned above the minimap
+	var status_bar_script: GDScript = load("res://ui/ai_status_bar.gd") as GDScript
+	if status_bar_script:
+		ai_status_bar = HBoxContainer.new()
+		ai_status_bar.set_script(status_bar_script)
+		ai_status_bar.name = "AIStatusBar"
+		var vp_size: Vector2 = get_viewport().get_visible_rect().size
+		ai_status_bar.position = Vector2(15, vp_size.y - 180)
+		add_child(ai_status_bar)
+
 func _process(_delta: float) -> void:
 	# Update minimap player position
 	var minimap = get_node_or_null("Minimap")
@@ -62,6 +90,10 @@ func _process(_delta: float) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed:
 		if event.keycode == KEY_ESCAPE or event.keycode == KEY_Q:
+			if ai_response_panel and ai_response_panel.visible:
+				ai_response_panel.dismiss()
+				get_viewport().set_input_as_handled()
+				return
 			if _viewer_open:
 				_close_viewer()
 				get_viewport().set_input_as_handled()
