@@ -80,9 +80,10 @@ func _process(_delta: float) -> void:
 				remove_meta("pending_prompt")
 				remove_meta("pending_model")
 				_send_generate_request(prompt, model)
-			else:
-				# Nothing to do — stop polling
+			elif not _is_generating:
+				# No pending request AND not generating — stop polling
 				_polling = false
+			# If _is_generating, keep polling — waiting for STATUS_REQUESTING/BODY
 			return
 
 		HTTPClient.STATUS_REQUESTING:
