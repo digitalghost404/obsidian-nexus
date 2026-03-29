@@ -1,8 +1,5 @@
 extends Node
 
-## Simplified layer manager — single city scene, no transitions
-## Graph view removed due to Godot scene-swap issues
-
 var current_scene: Node3D = null
 var current_camera: Node = null
 
@@ -15,11 +12,12 @@ func load_city() -> void:
 	var cam_res = load("res://camera/player_camera.tscn")
 	var cam_instance = cam_res.instantiate()
 
+	# Set position BEFORE adding to tree
+	cam_instance.position = Vector3(60, 2, 27)
+
 	main_node.add_child(scene_instance)
 	main_node.add_child(cam_instance)
 
-	cam_instance.position = Vector3(60, 2, 27)  # Edge of exclusion zone, looking toward hub
-
 	current_scene = scene_instance
 	current_camera = cam_instance
-	print("LayerManager: city loaded, camera at (60, 2, 60)")
+	print("LayerManager: city loaded, camera at %s" % str(cam_instance.position))
