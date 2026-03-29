@@ -52,7 +52,7 @@ func load_layer(layer: Layer, context: Dictionary = {}) -> void:
 	elif layer == Layer.GRAPH:
 		cam_instance.position = Vector3(0, 30, 80)
 	elif layer == Layer.CITY:
-		cam_instance.position = Vector3(150, 2, 150)
+		cam_instance.position = Vector3(60, 2, 60)
 	elif layer == Layer.CORRIDOR:
 		cam_instance.position = Vector3(0, 1, 2)
 
@@ -92,7 +92,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed:
 		if event.keycode == KEY_SPACE:
 			if current_layer == Layer.CORRIDOR:
-				var ctx := {"camera_position": Vector3(150, 2, 150)}
+				var ctx := {"camera_position": Vector3(60, 2, 60)}
 				transition_to(Layer.CITY, ctx)
 			elif current_layer == Layer.CITY:
 				transition_to(Layer.GRAPH)
