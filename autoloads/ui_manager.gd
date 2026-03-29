@@ -59,10 +59,15 @@ func _create_note_viewer() -> Control:
 	# Main panel — centered, sized to 70% of screen
 	var panel := PanelContainer.new()
 	panel.name = "Panel"
-	panel.anchor_left = 0.15
-	panel.anchor_top = 0.05
-	panel.anchor_right = 0.85
-	panel.anchor_bottom = 0.95
+	panel.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+	panel.anchor_left = 0.1
+	panel.anchor_top = 0.03
+	panel.anchor_right = 0.9
+	panel.anchor_bottom = 0.97
+	panel.offset_left = 0
+	panel.offset_top = 0
+	panel.offset_right = 0
+	panel.offset_bottom = 0
 	var style := StyleBoxFlat.new()
 	style.bg_color = Color(0.015, 0.02, 0.05, 0.95)
 	style.border_color = Color(0.1, 0.2, 0.7, 0.6)
@@ -185,6 +190,10 @@ func _open_viewer(note_id: String) -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
 	var panel: PanelContainer = note_viewer.get_node("Panel")
+	# Force panel size based on viewport — anchors can be unreliable in CanvasLayer
+	var vp_size: Vector2 = get_viewport().get_visible_rect().size
+	panel.position = Vector2(vp_size.x * 0.1, vp_size.y * 0.03)
+	panel.size = Vector2(vp_size.x * 0.8, vp_size.y * 0.94)
 	var content: VBoxContainer = panel.get_node("Content")
 
 	# Title
