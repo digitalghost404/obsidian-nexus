@@ -8,6 +8,20 @@ var _viewer_open: bool = false
 func _ready() -> void:
 	layer = 5
 
+	# Screen-space effects — vignette, chromatic aberration, scan lines
+	var screen_fx_shader = load("res://shaders/screen_effects.gdshader")
+	if screen_fx_shader:
+		var fx_rect := ColorRect.new()
+		fx_rect.name = "ScreenFX"
+		fx_rect.anchors_preset = Control.PRESET_FULL_RECT
+		fx_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var fx_mat := ShaderMaterial.new()
+		fx_mat.shader = screen_fx_shader
+		fx_rect.material = fx_mat
+		add_child(fx_rect)
+		# Move to back so it doesn't block other UI
+		move_child(fx_rect, 0)
+
 	_crosshair = ColorRect.new()
 	_crosshair.size = Vector2(4, 4)
 	_crosshair.color = Color(1, 1, 1, 0.5)

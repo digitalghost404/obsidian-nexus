@@ -6,6 +6,11 @@ extends Node3D
 
 var _rings: Array[MeshInstance3D] = []
 var _hologram_panels: Array[Node3D] = []
+var _pulse_rings: Array[MeshInstance3D] = []
+var _pulse_timer: float = 0.0
+const PULSE_INTERVAL := 3.0
+const PULSE_SPEED := 25.0
+const PULSE_MAX_RADIUS := 60.0
 
 func _ready() -> void:
 	_build_hub()
@@ -364,6 +369,42 @@ func _build_hub() -> void:
 	add_child(ember_particles)
 
 	# ========================================
+	# SCANNER BEAM — rotating lighthouse sweep
+	# ========================================
+	var scanner := MeshInstance3D.new()
+	var scanner_mesh := BoxMesh.new()
+	scanner_mesh.size = Vector3(80.0, 0.3, 0.15)  # Long, thin, flat
+	scanner.mesh = scanner_mesh
+	scanner.position = Vector3(0, 8.0, 0)
+	scanner.name = "ScannerBeam"
+	var scan_mat := StandardMaterial3D.new()
+	scan_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	scan_mat.albedo_color = Color(0.1, 0.3, 0.9, 0.15)
+	scan_mat.emission_enabled = true
+	scan_mat.emission = Color(0.08, 0.2, 0.7)
+	scan_mat.emission_energy_multiplier = 2.0
+	scan_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	scanner.set_surface_override_material(0, scan_mat)
+	add_child(scanner)
+
+	# Second scanner at different height and speed
+	var scanner2 := MeshInstance3D.new()
+	var scanner2_mesh := BoxMesh.new()
+	scanner2_mesh.size = Vector3(60.0, 0.2, 0.1)
+	scanner2.mesh = scanner2_mesh
+	scanner2.position = Vector3(0, 20.0, 0)
+	scanner2.name = "ScannerBeam2"
+	var scan_mat2 := StandardMaterial3D.new()
+	scan_mat2.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	scan_mat2.albedo_color = Color(0.8, 0.3, 0.05, 0.1)
+	scan_mat2.emission_enabled = true
+	scan_mat2.emission = Color(0.7, 0.25, 0.05)
+	scan_mat2.emission_energy_multiplier = 1.5
+	scan_mat2.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	scanner2.set_surface_override_material(0, scan_mat2)
+	add_child(scanner2)
+
+	# ========================================
 	# NEXUS LABEL
 	# ========================================
 	var label := Label3D.new()
@@ -414,3 +455,60 @@ func _process(delta: float) -> void:
 		panel.rotate_y(delta * speed)
 		# Bob up and down slightly
 		panel.position.y += sin(Time.get_ticks_msec() * 0.001 + float(i)) * delta * 0.3
+
+	# Rotate scanner beams
+	var scanner = get_node_or_null("ScannerBeam")
+	if scanner:
+		scanner.rotate_y(delta * 0.4)
+	var scanner2 = get_node_or_null("ScannerBeam2")
+	if scanner2:
+		scanner2.rotate_y(-delta * 0.25)
+
+	# Energy pulse waves
+	_pulse_timer += delta
+	if _pulse_timer >= PULSE_INTERVAL:
+		_pulse_timer = 0.0
+		_spawn_pulse()
+
+	# Update existing pulses
+	var to_remove: Array[int] = []
+	for i in range(_pulse_rings.size()):
+		var ring: MeshInstance3D = _pulse_rings[i]
+		var current_radius: float = ring.get_meta("radius", 1.0)
+		current_radius += PULSE_SPEED * delta
+		ring.set_meta("radius", current_radius)
+		# Update torus size
+		var tmesh := ring.mesh as TorusMesh
+		tmesh.inner_radius = current_radius - 0.15
+		tmesh.outer_radius = current_radius + 0.15
+		# Fade out as it expands
+		var alpha: float = 1.0 - (current_radius / PULSE_MAX_RADIUS)
+		var mat: StandardMaterial3D = ring.get_surface_override_material(0)
+		if mat:
+			mat.albedo_color.a = alpha * 0.4
+			mat.emission_energy_multiplier = alpha * 4.0
+		if current_radius >= PULSE_MAX_RADIUS:
+			to_remove.append(i)
+
+	for i in range(to_remove.size() - 1, -1, -1):
+		_pulse_rings[to_remove[i]].queue_free()
+		_pulse_rings.remove_at(to_remove[i])
+
+func _spawn_pulse() -> void:
+	var ring := MeshInstance3D.new()
+	var rmesh := TorusMesh.new()
+	rmesh.inner_radius = 5.0
+	rmesh.outer_radius = 5.3
+	ring.mesh = rmesh
+	ring.position = Vector3(0, 0.1, 0)
+	ring.set_meta("radius", 5.0)
+	var rmat := StandardMaterial3D.new()
+	rmat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	rmat.albedo_color = Color(0.15, 0.35, 0.95, 0.4)
+	rmat.emission_enabled = true
+	rmat.emission = Color(0.1, 0.3, 0.9)
+	rmat.emission_energy_multiplier = 4.0
+	rmat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	ring.set_surface_override_material(0, rmat)
+	add_child(ring)
+	_pulse_rings.append(ring)

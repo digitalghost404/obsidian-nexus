@@ -232,6 +232,28 @@ func _build_city() -> void:
 			ground_particles.draw_pass_1 = gp_draw
 			add_child(ground_particles)
 
+	# Floating data fragments — snippets of note text drifting through the air
+	var all_notes: Array = graph.get_all_notes()
+	for i in range(40):
+		var random_note = all_notes[randi() % all_notes.size()]
+		var snippet: String = random_note.content.substr(0, 30 + randi() % 40)
+		if snippet.length() > 10:
+			var frag := Label3D.new()
+			frag.text = snippet.strip_edges()
+			frag.font_size = 10 + randi() % 8
+			frag.modulate = Color(0.15, 0.3, 0.7, 0.2 + randf() * 0.15)
+			frag.position = Vector3(
+				randf() * city_size.x,
+				3.0 + randf() * 12.0,
+				randf() * city_size.y
+			)
+			frag.rotation.y = randf() * PI * 2.0
+			frag.billboard = BaseMaterial3D.BILLBOARD_DISABLED
+			frag.no_depth_test = false
+			frag.outline_size = 2
+			frag.outline_modulate = Color(0.05, 0.1, 0.3, 0.15)
+			add_child(frag)
+
 	# Ember particles near center
 	var ember_scene: PackedScene = load("res://particles/ember_rise.tscn") as PackedScene
 	if ember_scene:
