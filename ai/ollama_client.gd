@@ -37,16 +37,20 @@ func generate(prompt: String, model: String) -> void:
 	# Parse URL components from config
 	var base_url: String = NexusAIConfig.get_setting("ollama_url")
 	var port: int = 11434
-	var host: String = "localhost"
+	var host: String = "127.0.0.1"  # Force IPv4 — localhost can try IPv6 first and fail
 
 	# Extract host and port from URL
 	var url_stripped: String = base_url.replace("http://", "").replace("https://", "")
 	if ":" in url_stripped:
 		var parts: PackedStringArray = url_stripped.split(":")
-		host = parts[0]
+		var parsed_host: String = parts[0]
 		port = parts[1].to_int()
+		# Convert localhost to 127.0.0.1 to avoid IPv6 issues
+		if parsed_host != "localhost":
+			host = parsed_host
 	else:
-		host = url_stripped
+		if url_stripped != "localhost":
+			host = url_stripped
 
 	var err: int = _http_client.connect_to_host(host, port)
 	if err != OK:
@@ -115,7 +119,7 @@ func _process(_delta: float) -> void:
 func _send_generate_request(prompt: String, model: String) -> void:
 	var body_dict: Dictionary = {
 		"model": model,
-		"prompt": prompt,
+		"prompt": prompt + "\n/no_think",  # Disable thinking mode for qwen3.5
 		"stream": true,
 	}
 	var body_json: String = JSON.stringify(body_dict)
@@ -159,6 +163,8 @@ func _read_streaming_response() -> void:
 		var token: String = data.get("response", "")
 		var done: bool = data.get("done", false)
 
+		# Some models (qwen3.5) emit "thinking" tokens before the response
+		# We skip thinking tokens and only emit response tokens
 		if not token.is_empty():
 			_full_response += token
 			chunk_received.emit(token)
