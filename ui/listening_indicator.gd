@@ -32,12 +32,20 @@ func _ready() -> void:
 	_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	add_child(_label)
 
-	# Connect to NexusAI
+	# Connect to NexusAI (deferred — mic_recorder may not exist yet)
 	if NexusAI:
 		NexusAI.state_changed.connect(_on_state_changed)
-		NexusAI.mic_recorder.recording_level.connect(_on_recording_level)
+		if NexusAI.mic_recorder:
+			NexusAI.mic_recorder.recording_level.connect(_on_recording_level)
+		else:
+			# Connect after NexusAI finishes setup
+			call_deferred("_connect_mic_recorder")
 
 	hide()
+
+func _connect_mic_recorder() -> void:
+	if NexusAI and NexusAI.mic_recorder:
+		NexusAI.mic_recorder.recording_level.connect(_on_recording_level)
 
 func _on_state_changed(new_state: NexusAI.State) -> void:
 	if new_state == NexusAI.State.LISTENING:
