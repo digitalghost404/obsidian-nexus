@@ -67,15 +67,17 @@ func _build_city() -> void:
 	ground.add_child(ground_col)
 	add_child(ground)
 
-	# Boundary walls with schematic shader — BoxMesh for proper visibility
-	var wall_shader = load("res://shaders/wall_schematic.gdshader")
+	# Boundary walls with blue code rain
+	var wall_shader = load("res://shaders/code_rain.gdshader")
 	if wall_shader:
 		var wall_height := 30.0
 		var wall_thick := 0.3
 		var w_mat := ShaderMaterial.new()
 		w_mat.shader = wall_shader
-		w_mat.set_shader_parameter("emission_strength", 1.5)
-		w_mat.set_shader_parameter("panel_scale", 5.0)
+		w_mat.set_shader_parameter("rain_color", Color(0.08, 0.2, 0.7, 0.5))
+		w_mat.set_shader_parameter("scroll_speed", 1.0)
+		w_mat.set_shader_parameter("columns", 30.0)
+		w_mat.set_shader_parameter("brightness_variation", 0.7)
 		# South wall
 		var s_wall := MeshInstance3D.new()
 		var s_mesh := BoxMesh.new()
