@@ -74,39 +74,21 @@ func transition_to(target_layer: Layer, context: Dictionary = {}) -> void:
 	if _is_transitioning:
 		return
 	_is_transitioning = true
-	transition_started.emit()
 
-	# Fade to black
-	_transition_overlay.color = Color(0, 0, 0.02, 0)
-	_transition_overlay.visible = true
-	var tween := create_tween()
-	tween.tween_property(_transition_overlay, "color:a", 1.0, 0.4)
-	await tween.finished
-
-	# Swap scenes
+	# Immediate swap — no animation for now
 	if current_scene:
 		current_scene.queue_free()
+		current_scene = null
 	if current_camera:
 		current_camera.queue_free()
+		current_camera = null
 
-	await get_tree().process_frame
+	# Wait for old nodes to be freed
 	await get_tree().process_frame
 
 	load_layer(target_layer, context)
 
-	# Wait for scene to fully initialize (physics needs multiple frames)
-	await get_tree().process_frame
-	await get_tree().process_frame
-	await get_tree().process_frame
-
-	# Fade from black
-	var tween2 := create_tween()
-	tween2.tween_property(_transition_overlay, "color:a", 0.0, 0.6)
-	await tween2.finished
-	_transition_overlay.visible = false
-
 	_is_transitioning = false
-	transition_completed.emit()
 
 func _unhandled_input(event: InputEvent) -> void:
 	if _is_transitioning:
