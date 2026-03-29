@@ -22,27 +22,15 @@ func _ready() -> void:
 
 func _on_vault_loaded() -> void:
 	print("Vault loaded: %d notes, %d links" % [VaultDataBus.graph.get_note_count(), VaultDataBus.graph.get_link_count()])
-	# DEBUG: absolute minimum test — does Godot render ANYTHING after vault load?
-	var cube := MeshInstance3D.new()
-	var box := BoxMesh.new()
-	box.size = Vector3(2, 2, 2)
-	cube.mesh = box
-	cube.position = Vector3(0, 0, -5)
-	var mat := StandardMaterial3D.new()
-	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	mat.albedo_color = Color(1, 0, 0)
-	cube.set_surface_override_material(0, mat)
-	add_child(cube)
+	# DEBUG TEST: load corridor AND keep a bare camera to see if it overrides
+	# Step 1: Load corridor normally
+	LayerManager.load_layer(LayerManager.Layer.CORRIDOR, {"note_id": "ai-engineering/Building AI Agents"})
 
-	var cam := Camera3D.new()
-	cam.position = Vector3(0, 0, 0)
-	cam.current = true
-	add_child(cam)
-
-	var light := OmniLight3D.new()
-	light.light_energy = 5.0
-	light.omni_range = 20.0
-	light.position = Vector3(0, 3, 0)
-	add_child(light)
-
-	print("DEBUG: bare test — red cube at (0,0,-5), camera at origin")
+	# Step 2: AFTER corridor loads, force a new bare camera as current
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var test_cam := Camera3D.new()
+	test_cam.position = Vector3(0, 1.5, 2)
+	test_cam.current = true
+	add_child(test_cam)
+	print("DEBUG: forced test camera at (0, 1.5, 2), current=%s" % str(test_cam.current))
