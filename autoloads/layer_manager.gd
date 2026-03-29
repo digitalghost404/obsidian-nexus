@@ -12,8 +12,9 @@ func load_city() -> void:
 	var cam_res = load("res://camera/player_camera.tscn")
 	var cam_instance = cam_res.instantiate()
 
-	# Set position BEFORE adding to tree
-	cam_instance.position = Vector3(60, 2, 27)
+	# Set position BEFORE adding to tree — at outer ring edge, facing hub
+	cam_instance.position = Vector3(60, 2, 15)
+	cam_instance.rotation.y = PI  # Face +Z toward the hub
 
 	main_node.add_child(scene_instance)
 	main_node.add_child(cam_instance)
