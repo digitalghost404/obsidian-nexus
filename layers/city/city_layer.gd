@@ -35,8 +35,8 @@ func _build_city() -> void:
 	if grid_shader:
 		var grid_mat := ShaderMaterial.new()
 		grid_mat.shader = grid_shader
-		grid_mat.set_shader_parameter("tile_scale", 10.0)
-		grid_mat.set_shader_parameter("emission_strength", 0.8)
+		grid_mat.set_shader_parameter("tile_scale", 14.0)
+		grid_mat.set_shader_parameter("emission_strength", 3.5)
 		ground_visual.set_surface_override_material(0, grid_mat)
 	else:
 		var ground_mat := StandardMaterial3D.new()
@@ -67,28 +67,47 @@ func _build_city() -> void:
 	ground.add_child(ground_col)
 	add_child(ground)
 
-	# Boundary walls with schematic shader
+	# Boundary walls with schematic shader — BoxMesh for proper visibility
 	var wall_shader = load("res://shaders/wall_schematic.gdshader")
 	if wall_shader:
-		var wall_height := 25.0
-		var wall_positions := [
-			{"pos": Vector3(city_size.x / 2.0, wall_height / 2.0, -10), "rot": 0.0, "size": Vector2(city_size.x + 40, wall_height)},  # South
-			{"pos": Vector3(city_size.x / 2.0, wall_height / 2.0, city_size.y + 10), "rot": 0.0, "size": Vector2(city_size.x + 40, wall_height)},  # North
-			{"pos": Vector3(-10, wall_height / 2.0, city_size.y / 2.0), "rot": PI / 2.0, "size": Vector2(city_size.y + 40, wall_height)},  # West
-			{"pos": Vector3(city_size.x + 10, wall_height / 2.0, city_size.y / 2.0), "rot": PI / 2.0, "size": Vector2(city_size.y + 40, wall_height)},  # East
-		]
-		for w in wall_positions:
-			var wall := MeshInstance3D.new()
-			var wall_mesh := PlaneMesh.new()
-			wall_mesh.size = w["size"]
-			wall.mesh = wall_mesh
-			wall.position = w["pos"]
-			wall.rotation.y = w["rot"]
-			var w_mat := ShaderMaterial.new()
-			w_mat.shader = wall_shader
-			w_mat.set_shader_parameter("emission_strength", 1.0)
-			wall.set_surface_override_material(0, w_mat)
-			add_child(wall)
+		var wall_height := 30.0
+		var wall_thick := 0.3
+		var w_mat := ShaderMaterial.new()
+		w_mat.shader = wall_shader
+		w_mat.set_shader_parameter("emission_strength", 1.5)
+		w_mat.set_shader_parameter("panel_scale", 5.0)
+		# South wall
+		var s_wall := MeshInstance3D.new()
+		var s_mesh := BoxMesh.new()
+		s_mesh.size = Vector3(city_size.x * 2.0, wall_height, wall_thick)
+		s_wall.mesh = s_mesh
+		s_wall.position = Vector3(city_size.x / 2.0, wall_height / 2.0, -15)
+		s_wall.set_surface_override_material(0, w_mat)
+		add_child(s_wall)
+		# North wall
+		var n_wall := MeshInstance3D.new()
+		var n_mesh := BoxMesh.new()
+		n_mesh.size = Vector3(city_size.x * 2.0, wall_height, wall_thick)
+		n_wall.mesh = n_mesh
+		n_wall.position = Vector3(city_size.x / 2.0, wall_height / 2.0, city_size.y + 15)
+		n_wall.set_surface_override_material(0, w_mat.duplicate())
+		add_child(n_wall)
+		# West wall
+		var w_wall := MeshInstance3D.new()
+		var ww_mesh := BoxMesh.new()
+		ww_mesh.size = Vector3(wall_thick, wall_height, city_size.y * 2.0)
+		w_wall.mesh = ww_mesh
+		w_wall.position = Vector3(-15, wall_height / 2.0, city_size.y / 2.0)
+		w_wall.set_surface_override_material(0, w_mat.duplicate())
+		add_child(w_wall)
+		# East wall
+		var e_wall := MeshInstance3D.new()
+		var ew_mesh := BoxMesh.new()
+		ew_mesh.size = Vector3(wall_thick, wall_height, city_size.y * 2.0)
+		e_wall.mesh = ew_mesh
+		e_wall.position = Vector3(city_size.x + 15, wall_height / 2.0, city_size.y / 2.0)
+		e_wall.set_surface_override_material(0, w_mat.duplicate())
+		add_child(e_wall)
 
 	# Central Nexus Hub
 	var hub_script: GDScript = load("res://layers/city/nexus_hub.gd") as GDScript
