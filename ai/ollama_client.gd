@@ -80,8 +80,9 @@ func _process(_delta: float) -> void:
 				remove_meta("pending_prompt")
 				remove_meta("pending_model")
 				_send_generate_request(prompt, model)
-			elif _http_client.has_response():
-				_read_streaming_response()
+			else:
+				# Nothing to do — stop polling
+				_polling = false
 			return
 
 		HTTPClient.STATUS_REQUESTING:
@@ -89,7 +90,11 @@ func _process(_delta: float) -> void:
 			return
 
 		HTTPClient.STATUS_BODY:
-			_read_streaming_response()
+			if _is_generating:
+				_read_streaming_response()
+			else:
+				_http_client.close()
+				_polling = false
 			return
 
 		HTTPClient.STATUS_DISCONNECTED:
