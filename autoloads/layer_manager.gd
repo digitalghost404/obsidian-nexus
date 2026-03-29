@@ -5,12 +5,8 @@ enum Layer { GRAPH, CITY, CORRIDOR }
 var current_layer: Layer = Layer.CITY
 var current_scene: Node3D = null
 var current_camera: Node = null
-var _transition_overlay: ColorRect
-var _is_transitioning: bool = false
 
 signal layer_changed(new_layer: Layer)
-signal transition_started()
-signal transition_completed()
 
 const SCENES := {
 	Layer.GRAPH: "res://layers/graph/graph_layer.tscn",
@@ -24,18 +20,20 @@ const CAMERAS := {
 	Layer.CORRIDOR: "res://camera/player_camera.tscn",
 }
 
-func _ready() -> void:
-	var canvas := CanvasLayer.new()
-	canvas.layer = 10
-	_transition_overlay = ColorRect.new()
-	_transition_overlay.anchors_preset = Control.PRESET_FULL_RECT
-	_transition_overlay.color = Color(0.0, 0.0, 0.02, 1.0)
-	_transition_overlay.visible = false
-	_transition_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	canvas.add_child(_transition_overlay)
-	add_child(canvas)
-
 func load_layer(layer: Layer, context: Dictionary = {}) -> void:
+	var main_node: Node = get_tree().root.get_node("Main")
+
+	# Remove old scene and camera immediately (not queue_free)
+	if current_camera:
+		main_node.remove_child(current_camera)
+		current_camera.free()
+		current_camera = null
+	if current_scene:
+		main_node.remove_child(current_scene)
+		current_scene.free()
+		current_scene = null
+
+	# Load new scene
 	var scene_res = load(SCENES[layer])
 	if not scene_res:
 		push_error("LayerManager: Failed to load scene %s" % SCENES[layer])
@@ -48,13 +46,15 @@ func load_layer(layer: Layer, context: Dictionary = {}) -> void:
 	if layer == Layer.CORRIDOR and context.has("note_id"):
 		scene_instance.set("current_note_id", context["note_id"])
 
+	# Load new camera
 	var cam_res = load(CAMERAS[layer])
 	var cam_instance = cam_res.instantiate()
 
-	var main_node: Node = get_tree().root.get_node("Main")
+	# Add to tree — this triggers _ready on both
 	main_node.add_child(scene_instance)
 	main_node.add_child(cam_instance)
 
+	# Set camera position AFTER adding to tree
 	if context.has("camera_position"):
 		cam_instance.global_position = context["camera_position"]
 	elif layer == Layer.GRAPH:
@@ -63,7 +63,7 @@ func load_layer(layer: Layer, context: Dictionary = {}) -> void:
 		cam_instance.position = Vector3(60, 2, 60)
 	elif layer == Layer.CORRIDOR:
 		cam_instance.position = Vector3(0, 1, 2)
-		cam_instance.rotation.y = PI  # Face +Z (corridor extends along +Z)
+		cam_instance.rotation.y = PI
 
 	current_scene = scene_instance
 	current_camera = cam_instance
@@ -71,32 +71,12 @@ func load_layer(layer: Layer, context: Dictionary = {}) -> void:
 	print("LayerManager: loaded %s, camera at %s" % [Layer.keys()[layer], str(cam_instance.position)])
 	layer_changed.emit(layer)
 
-func transition_to(target_layer: Layer, context: Dictionary = {}) -> void:
-	if _is_transitioning:
-		return
-	_is_transitioning = true
-
-	# Immediate swap — no animation for now
-	if current_scene:
-		current_scene.queue_free()
-		current_scene = null
-	if current_camera:
-		current_camera.queue_free()
-		current_camera = null
-
-	# Wait for old nodes to be freed
-	await get_tree().process_frame
-
-	load_layer(target_layer, context)
-
-	_is_transitioning = false
-
 func _unhandled_input(event: InputEvent) -> void:
-	if _is_transitioning:
-		return
 	if event is InputEventKey and event.pressed:
 		if event.keycode == KEY_SPACE:
-			if current_layer == Layer.CORRIDOR:
-				transition_to(Layer.CITY, {"camera_position": Vector3(60, 2, 60)})
-			elif current_layer == Layer.CITY:
-				transition_to(Layer.GRAPH)
+			if Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
+				return  # Don't switch layers when UI overlay is open
+			if current_layer == Layer.CITY:
+				load_layer(Layer.GRAPH)
+			elif current_layer == Layer.GRAPH:
+				load_layer(Layer.CITY)
