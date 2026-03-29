@@ -128,6 +128,17 @@ static func build_tower(note: VaultParser.NoteData, connection_count: int, posit
 		light.position = Vector3(position_2d.x, height * 0.6, position_2d.y)
 		root.add_child(light)
 
+	# ---- COLLISION: for click/hover detection ----
+	var body := StaticBody3D.new()
+	body.position = Vector3(position_2d.x, height / 2.0, position_2d.y)
+	var col := CollisionShape3D.new()
+	var col_shape := BoxShape3D.new()
+	col_shape.size = Vector3(width, height, width)
+	col.shape = col_shape
+	body.add_child(col)
+	body.set_meta("note_id", note.id)
+	root.add_child(body)
+
 	root.set_meta("note_id", note.id)
 	root.set_meta("connection_count", connection_count)
 	return root
