@@ -364,13 +364,21 @@ func _build_city() -> void:
 func highlight_notes(note_ids: Array) -> void:
 	for note_id in _tower_map:
 		var tower: Node3D = _tower_map[note_id]
+		var is_highlighted: bool = note_id in note_ids
 		for child in tower.get_children():
 			if child is MeshInstance3D:
 				var mesh_child: MeshInstance3D = child as MeshInstance3D
 				var mat: Material = mesh_child.get_surface_override_material(0)
-				if mat is StandardMaterial3D:
+				if mat is ShaderMaterial:
+					var smat: ShaderMaterial = mat.duplicate() as ShaderMaterial
+					if is_highlighted:
+						smat.set_shader_parameter("emission_strength", 8.0)
+					else:
+						smat.set_shader_parameter("emission_strength", 0.2)
+					mesh_child.set_surface_override_material(0, smat)
+				elif mat is StandardMaterial3D:
 					var std_mat: StandardMaterial3D = mat.duplicate() as StandardMaterial3D
-					if note_id in note_ids:
+					if is_highlighted:
 						std_mat.emission_energy_multiplier = 12.0
 					else:
 						std_mat.emission_energy_multiplier = 0.1
@@ -452,7 +460,11 @@ func clear_highlights() -> void:
 			if child is MeshInstance3D:
 				var mesh_child: MeshInstance3D = child as MeshInstance3D
 				var mat: Material = mesh_child.get_surface_override_material(0)
-				if mat is StandardMaterial3D:
+				if mat is ShaderMaterial:
+					var smat: ShaderMaterial = mat.duplicate() as ShaderMaterial
+					smat.set_shader_parameter("emission_strength", 1.5 + temp * 2.0)
+					mesh_child.set_surface_override_material(0, smat)
+				elif mat is StandardMaterial3D:
 					var std_mat: StandardMaterial3D = mat.duplicate() as StandardMaterial3D
 					std_mat.emission_energy_multiplier = 2.0 + temp * 6.0
 					mesh_child.set_surface_override_material(0, std_mat)

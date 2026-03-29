@@ -490,6 +490,11 @@ func _process_navigation_command(target: String, action: String) -> void:
 						matching_ids.append(note.id)
 				city_layer.highlight_notes(matching_ids)
 				print("NexusAI: highlighted %d notes matching '%s'" % [matching_ids.size(), target])
+				# Auto-clear highlights after 8 seconds
+				get_tree().create_timer(8.0).timeout.connect(func():
+					if city_layer and city_layer.has_method("clear_highlights"):
+						city_layer.clear_highlights()
+				)
 		"pulse":
 			if city_layer.has_method("pulse_tower"):
 				city_layer.pulse_tower(target)
