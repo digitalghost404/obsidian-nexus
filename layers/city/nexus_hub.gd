@@ -176,7 +176,7 @@ func _build_hub() -> void:
 			pmesh.size = Vector3(3.0, 2.0, 0.05)
 			panel.mesh = pmesh
 			panel.position = Vector3(cos(angle) * dist, 6.0 + float(i % 3) * 4.0, sin(angle) * dist)
-			panel.look_at(Vector3(0, panel.position.y, 0))
+			panel.rotation.y = angle + PI  # Face toward center
 			panel.name = "HoloPanel_%d" % i
 			var pmat := ShaderMaterial.new()
 			pmat.shader = wall_shader
