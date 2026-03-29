@@ -161,9 +161,6 @@ func _open_viewer(note_id: String) -> void:
 	if not note:
 		return
 
-	if _map_open:
-		_close_map()
-
 	_viewer_open = true
 	hover_panel.hide()
 	_crosshair.hide()
