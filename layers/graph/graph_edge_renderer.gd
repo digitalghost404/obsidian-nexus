@@ -25,13 +25,13 @@ func build_edges(graph) -> void:
 		var note = graph.get_note(note_id)
 		if not note:
 			continue
-		var from_pos := graph.get_position(note_id)
+		var from_pos: Vector3 = graph.get_position(note_id)
 		for link in note.outgoing_links:
-			var to_pos := graph.get_position(link)
+			var to_pos: Vector3 = graph.get_position(link)
 			if to_pos == Vector3.ZERO and not graph.get_note(link):
 				continue
-			var from_conns := graph.get_connection_count(note_id)
-			var to_conns := graph.get_connection_count(link)
+			var from_conns: int = graph.get_connection_count(note_id)
+			var to_conns: int = graph.get_connection_count(link)
 			var avg_temp := clampf((from_conns + to_conns) / 50.0, 0.0, 1.0)
 			var edge_color := Color(0.32, 0.4, 0.93, 0.2).lerp(Color(0.98, 0.58, 0.09, 0.4), avg_temp)
 

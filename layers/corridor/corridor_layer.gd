@@ -22,7 +22,7 @@ func build_corridor(note_id: String) -> void:
 	if not note:
 		return
 
-	var backlinks := VaultDataBus.graph.get_backlinks(note_id)
+	var backlinks: Array = VaultDataBus.graph.get_backlinks(note_id)
 	var layout := _hallway_gen.compute_layout({
 		"id": note.id,
 		"title": note.title,

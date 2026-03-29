@@ -32,7 +32,7 @@ func build_beams(tower_positions: Dictionary, graph) -> void:
 				var mid_pos := (from_pos + to_pos) / 2.0
 				mid_pos.y = mid_y
 
-				var temp := clampf((graph.get_connection_count(note_id) + graph.get_connection_count(link)) / 50.0, 0.0, 1.0)
+				var temp: float = clampf((graph.get_connection_count(note_id) + graph.get_connection_count(link)) / 50.0, 0.0, 1.0)
 				var beam_color := Color(0.32, 0.4, 0.93, 0.15).lerp(Color(0.98, 0.58, 0.09, 0.3), temp)
 
 				_mesh.surface_set_color(beam_color)

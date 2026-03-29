@@ -75,7 +75,7 @@ func _diff_and_patch() -> void:
 	var current_ids: Dictionary = {}
 	for note in current_notes:
 		current_ids[note.id] = note
-		var cached := graph.get_note(note.id)
+		var cached = graph.get_note(note.id)
 		if not cached or cached.last_modified < note.last_modified:
 			graph.update_note(note)
 

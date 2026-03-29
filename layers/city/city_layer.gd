@@ -12,7 +12,7 @@ func _build_city() -> void:
 	var folder_sizes: Dictionary = {}
 	for folder in graph.get_all_folders():
 		folder_sizes[folder] = graph.get_notes_by_folder(folder).size()
-	var root_notes := graph.get_notes_by_folder("")
+	var root_notes: Array = graph.get_notes_by_folder("")
 	if root_notes.size() > 0:
 		folder_sizes["_root"] = root_notes.size()
 
@@ -46,7 +46,7 @@ func _build_city() -> void:
 		var folder: String = district["folder"]
 		var rect: Rect2 = district["rect"]
 		var actual_folder := "" if folder == "_root" else folder
-		var notes := graph.get_notes_by_folder(actual_folder)
+		var notes: Array = graph.get_notes_by_folder(actual_folder)
 
 		# District name sign
 		var sign_label := Label3D.new()
@@ -72,7 +72,7 @@ func _build_city() -> void:
 				rect.position.x + col * spacing_x + spacing_x / 2.0,
 				rect.position.y + row * spacing_z + spacing_z / 2.0
 			)
-			var connections := graph.get_connection_count(note.id)
+			var connections: int = graph.get_connection_count(note.id)
 			var tower := TowerBuilder.build_tower(note, connections, pos_2d)
 			add_child(tower)
 			_tower_map[note.id] = tower

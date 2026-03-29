@@ -93,7 +93,7 @@ func highlight_notes(note_ids: Array) -> void:
 func clear_highlights() -> void:
 	for note_id in _node_map:
 		var node: Node3D = _node_map[note_id]
-		var conns := VaultDataBus.graph.get_connection_count(note_id)
+		var conns: int = VaultDataBus.graph.get_connection_count(note_id)
 		var temp := clampf(conns / 25.0, 0.0, 1.0)
 		if node.has_node("MeshInstance3D"):
 			var mat = node.get_node("MeshInstance3D").get_surface_override_material(0)

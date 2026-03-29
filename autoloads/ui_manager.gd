@@ -136,7 +136,7 @@ func _on_tag_filter_requested() -> void:
 	var option := OptionButton.new()
 	option.add_item("-- Select Tag --")
 	for tag in VaultDataBus.graph.get_all_tags():
-		var count := VaultDataBus.graph.get_notes_by_tag(tag).size()
+		var count: int = VaultDataBus.graph.get_notes_by_tag(tag).size()
 		option.add_item("%s (%d)" % [tag, count])
 	tag_dialog.add_child(option)
 	add_child(tag_dialog)
@@ -150,7 +150,7 @@ func _on_tag_filter_requested() -> void:
 				LayerManager.current_scene.clear_highlights()
 		else:
 			var tag := selected.split(" (")[0]
-			var tag_notes := VaultDataBus.graph.get_notes_by_tag(tag)
+			var tag_notes: Array = VaultDataBus.graph.get_notes_by_tag(tag)
 			var ids: Array = []
 			for n in tag_notes:
 				ids.append(n.id)
