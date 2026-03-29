@@ -6,8 +6,8 @@ const CONFIG_PATH: String = "user://nexus_ai_config.json"
 
 var _settings: Dictionary = {}
 var _defaults: Dictionary = {
-	"model": "qwen3.5:4b",
-	"ollama_url": "http://localhost:11434",
+	"model": "llama3.2:3b",
+	"ollama_url": "http://127.0.0.1:11434",
 	"whisper_url": "http://localhost:8178",
 	"kokoro_url": "http://localhost:8180",
 	"voice": "af_heart",

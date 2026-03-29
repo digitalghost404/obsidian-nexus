@@ -119,7 +119,7 @@ func _process(_delta: float) -> void:
 func _send_generate_request(prompt: String, model: String) -> void:
 	var body_dict: Dictionary = {
 		"model": model,
-		"prompt": prompt + "\n/no_think",  # Disable thinking mode for qwen3.5
+		"prompt": prompt,
 		"stream": true,
 	}
 	var body_json: String = JSON.stringify(body_dict)
