@@ -31,6 +31,7 @@ var kokoro_client: KokoroClient
 var mic_recorder: MicRecorder
 var prompt_builder: PromptBuilder
 var response_parser: ResponseParser
+var ambient_whisper: AmbientWhisper
 
 # ─── Mic Input ───────────────────────────────────────────────────
 
@@ -117,6 +118,11 @@ func _ready() -> void:
 
 	# Connect navigation command to handler
 	navigation_command.connect(_process_navigation_command)
+
+	# Ambient whisper mode
+	ambient_whisper = AmbientWhisper.new()
+	ambient_whisper.name = "AmbientWhisper"
+	add_child(ambient_whisper)
 
 	# Health check all services
 	_check_services()
