@@ -33,6 +33,10 @@ func build_corridor(note_id: String) -> void:
 		"word_count": note.word_count,
 	})
 
+	print("Corridor: building for '%s' — %d segments, %d panels, %d doorways" % [
+		note.title, layout["segments"].size(), layout["wall_panels"].size(), layout["doorways"].size()
+	])
+
 	_build_hallway_geometry(layout)
 
 	# Place wall panels
@@ -124,13 +128,35 @@ func _build_hallway_geometry(layout: Dictionary) -> void:
 		right_wall.set_surface_override_material(0, right_mat)
 		add_child(right_wall)
 
-	# Ambient light strip
-	var light := OmniLight3D.new()
-	light.light_color = Color(0.95, 0.6, 0.2)
-	light.light_energy = 2.0
-	light.omni_range = 15.0
-	light.position = Vector3(0, layout["segments"][0]["height"] - 0.3, layout["total_length"] / 2.0)
-	add_child(light)
+	# Ceiling lights along the corridor — every 6 meters
+	var total_len: float = layout["total_length"]
+	var hall_height: float = layout["segments"][0]["height"]
+	var num_lights: int = maxi(ceili(total_len / 6.0), 2)
+	for i in range(num_lights):
+		var z_pos: float = (i + 0.5) * (total_len / float(num_lights))
+		var light := OmniLight3D.new()
+		light.light_color = Color(0.95, 0.6, 0.2)
+		light.light_energy = 1.5
+		light.omni_range = 8.0
+		light.omni_attenuation = 1.5
+		light.position = Vector3(0, hall_height - 0.3, z_pos)
+		add_child(light)
+
+	# Floor accent lights — dim blue at base of walls
+	for i in range(maxi(ceili(total_len / 10.0), 1)):
+		var z_pos: float = (i + 0.5) * (total_len / float(maxi(ceili(total_len / 10.0), 1)))
+		var left_light := OmniLight3D.new()
+		left_light.light_color = Color(0.1, 0.2, 0.8)
+		left_light.light_energy = 0.6
+		left_light.omni_range = 4.0
+		left_light.position = Vector3(-1.5, 0.3, z_pos)
+		add_child(left_light)
+		var right_light := OmniLight3D.new()
+		right_light.light_color = Color(0.1, 0.2, 0.8)
+		right_light.light_energy = 0.6
+		right_light.omni_range = 4.0
+		right_light.position = Vector3(1.5, 0.3, z_pos)
+		add_child(right_light)
 
 func _connect_doorway_signals() -> void:
 	for child in get_children():
