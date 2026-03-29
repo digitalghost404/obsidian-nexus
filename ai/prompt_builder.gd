@@ -2,27 +2,24 @@ extends RefCounted
 class_name PromptBuilder
 
 ## Constructs prompts with vault context injection and conversation history
-## for the Ollama LLM. Output format matches spec section 4.3.
+
+const STOP_WORDS: Array[String] = [
+	"show", "me", "notes", "about", "the", "what", "do", "have", "take",
+	"tell", "find", "search", "look", "get", "give", "list", "all",
+	"for", "with", "from", "that", "this", "and", "are", "can", "how",
+	"let", "see", "where", "which", "who", "related", "regarding",
+]
 
 func build_prompt(query: String, vault_graph: NoteGraph, history: Array) -> String:
 	var parts: PackedStringArray = PackedStringArray()
-
-	# 1. System prompt
 	parts.append(_build_system_prompt(vault_graph))
-
-	# 2. Vault context — find relevant notes by keyword matching the query
 	var vault_context: String = _build_vault_context(query, vault_graph)
 	if not vault_context.is_empty():
 		parts.append(vault_context)
-
-	# 3. Conversation history
 	var history_text: String = _build_history(history)
 	if not history_text.is_empty():
 		parts.append(history_text)
-
-	# 4. User query
 	parts.append("USER: %s" % query)
-
 	return "\n\n".join(parts)
 
 func _build_system_prompt(vault_graph: NoteGraph) -> String:
@@ -42,71 +39,94 @@ RULES FOR COMMANDS (follow exactly):
 - Only one NAVIGATE or HIGHLIGHT per response. Put it on the LAST line by itself.
 - Do NOT write note_id() or quotes around the note title. Just write the title plainly.
 
+When listing notes, use their exact titles from the vault context provided.
 Keep responses concise (2-4 sentences). Answer based on vault knowledge provided. If the vault doesn't contain relevant information, say so honestly.""" % [note_count, link_count, tag_count]
 
 	return prompt
 
 func _build_vault_context(query: String, vault_graph: NoteGraph) -> String:
-	var max_notes: int = NexusAIConfig.get_setting("vault_context_max_notes")
-	var max_chars: int = NexusAIConfig.get_setting("vault_context_max_chars")
+	var max_notes: int = 8  # More context than config default
+	var max_chars: int = 300
 
-	# Tokenize query into lowercase keywords (skip very short words)
+	# Extract meaningful keywords — filter out stop words
 	var keywords: Array[String] = []
 	for word in query.to_lower().split(" "):
-		var cleaned: String = word.strip_edges()
-		if cleaned.length() >= 3:
+		var cleaned: String = word.strip_edges().trim_suffix(".").trim_suffix(",").trim_suffix("?").trim_suffix("!")
+		if cleaned.length() >= 2 and cleaned not in STOP_WORDS:
 			keywords.append(cleaned)
+
+	# If all keywords were stop words, use the longest word from query
+	if keywords.is_empty():
+		var longest: String = ""
+		for word in query.to_lower().split(" "):
+			var cleaned: String = word.strip_edges()
+			if cleaned.length() > longest.length():
+				longest = cleaned
+		if longest.length() >= 2:
+			keywords.append(longest)
 
 	if keywords.is_empty():
 		return ""
 
+	print("PromptBuilder: searching vault with keywords: %s" % str(keywords))
+
 	# Score all notes by keyword relevance
-	var scored_notes: Array = []  # Array of [score: int, note: NoteData]
+	var scored_notes: Array = []
 	for note in vault_graph.get_all_notes():
 		var score: int = _score_note(note, keywords)
 		if score > 0:
 			scored_notes.append([score, note])
 
-	# Sort by score descending
 	scored_notes.sort_custom(func(a: Array, b: Array) -> bool: return a[0] > b[0])
 
+	print("PromptBuilder: found %d matching notes (top score: %d)" % [scored_notes.size(), scored_notes[0][0] if scored_notes.size() > 0 else 0])
+
 	if scored_notes.is_empty():
-		return ""
+		return "VAULT CONTEXT:\nNo notes found matching your query."
 
 	# Build context block with top N notes
 	var context_parts: PackedStringArray = PackedStringArray()
-	context_parts.append("VAULT CONTEXT:")
+	context_parts.append("VAULT CONTEXT (most relevant notes):")
 	var count: int = 0
 	for entry in scored_notes:
 		if count >= max_notes:
 			break
 		var note: RefCounted = entry[1]
+		var score: int = entry[0]
 		var truncated_content: String = note.content.substr(0, max_chars)
 		if note.content.length() > max_chars:
 			truncated_content += "..."
 		var tags_str: String = ", ".join(note.tags) if note.tags.size() > 0 else "none"
 		context_parts.append("---")
-		context_parts.append("Note: \"%s\"" % note.title)
+		context_parts.append("Note: \"%s\" (relevance: %d)" % [note.title, score])
+		context_parts.append("Folder: %s" % note.folder)
 		context_parts.append("Tags: %s" % tags_str)
 		context_parts.append("Content: %s" % truncated_content)
 		count += 1
+		if count <= 3:
+			print("PromptBuilder: #%d: %s (score=%d)" % [count, note.title, score])
 
 	context_parts.append("---")
 	return "\n".join(context_parts)
 
 func _score_note(note: RefCounted, keywords: Array[String]) -> int:
-	## Scores a note based on keyword matches in title, tags, and content.
-	## Title matches worth 3 points, tag matches 2 points, content matches 1 point.
 	var score: int = 0
 	var title_lower: String = note.title.to_lower()
 	var content_lower: String = note.content.to_lower()
+	var folder_lower: String = note.folder.to_lower()
 
 	for keyword in keywords:
+		# Title match — highest value
 		if keyword in title_lower:
-			score += 3
+			score += 5
+		# Folder match — strong signal
+		if keyword in folder_lower:
+			score += 4
+		# Tag match
 		for tag in note.tags:
 			if keyword in tag.to_lower():
-				score += 2
+				score += 3
+		# Content match
 		if keyword in content_lower:
 			score += 1
 
@@ -115,17 +135,15 @@ func _score_note(note: RefCounted, keywords: Array[String]) -> int:
 func _build_history(history: Array) -> String:
 	if history.is_empty():
 		return ""
-
 	var max_exchanges: int = NexusAIConfig.get_setting("history_max_exchanges")
-	# Each exchange is 2 entries (user + assistant), so we take last N*2
-	var start_index: int = maxi(0, history.size() - max_exchanges * 2)
-
-	var lines: PackedStringArray = PackedStringArray()
-	lines.append("CONVERSATION HISTORY:")
-	for i in range(start_index, history.size()):
-		var entry: Dictionary = history[i]
-		var role: String = entry.get("role", "user").to_upper()
+	var recent: Array = history.slice(-max_exchanges * 2)
+	var parts: PackedStringArray = PackedStringArray()
+	parts.append("CONVERSATION HISTORY:")
+	for entry in recent:
+		var role: String = entry.get("role", "")
 		var content: String = entry.get("content", "")
-		lines.append("%s: %s" % [role, content])
-
-	return "\n".join(lines)
+		if role == "user":
+			parts.append("User: %s" % content)
+		elif role == "assistant":
+			parts.append("Nexus: %s" % content)
+	return "\n".join(parts)
