@@ -31,6 +31,7 @@ func _on_vault_loaded() -> void:
 	await get_tree().process_frame
 	var test_cam := Camera3D.new()
 	test_cam.position = Vector3(0, 1.5, 2)
+	test_cam.rotation.y = PI  # Face +Z
 	test_cam.current = true
 	add_child(test_cam)
 	print("DEBUG: forced test camera at (0, 1.5, 2), current=%s" % str(test_cam.current))

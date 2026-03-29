@@ -63,6 +63,7 @@ func load_layer(layer: Layer, context: Dictionary = {}) -> void:
 		cam_instance.position = Vector3(60, 2, 60)
 	elif layer == Layer.CORRIDOR:
 		cam_instance.position = Vector3(0, 1, 2)
+		cam_instance.rotation.y = PI  # Face +Z (corridor extends along +Z)
 
 	current_scene = scene_instance
 	current_camera = cam_instance
