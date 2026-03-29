@@ -8,6 +8,23 @@ func _ready() -> void:
 
 func _build_city() -> void:
 	var graph: NoteGraph = VaultDataBus.graph
+	var city_size := Vector2(120.0, 120.0)
+
+	# ---- SKY DOME — digital sky with grid, data streams, horizon glow ----
+	var sky_shader = load("res://shaders/digital_sky.gdshader")
+	if sky_shader:
+		var sky_dome := MeshInstance3D.new()
+		var sky_mesh := SphereMesh.new()
+		sky_mesh.radius = 200.0
+		sky_mesh.height = 400.0
+		sky_mesh.radial_segments = 32
+		sky_mesh.rings = 16
+		sky_dome.mesh = sky_mesh
+		sky_dome.position = Vector3(city_size.x / 2.0, 0, city_size.y / 2.0)
+		var sky_mat := ShaderMaterial.new()
+		sky_mat.shader = sky_shader
+		sky_dome.set_surface_override_material(0, sky_mat)
+		add_child(sky_dome)
 
 	var folder_sizes: Dictionary = {}
 	var all_folders: Array = graph.get_all_folders()
@@ -19,7 +36,7 @@ func _build_city() -> void:
 		folder_sizes["_root"] = root_notes.size()
 
 	var district_gen: DistrictGenerator = DistrictGenerator.new()
-	var city_size: Vector2 = Vector2(120.0, 120.0)  # Much denser
+	# city_size defined at top of _build_city
 	var districts: Array = district_gen.generate(folder_sizes, city_size)
 
 	# Ground plane with grid shader and collision
