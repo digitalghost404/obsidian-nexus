@@ -45,7 +45,7 @@ func build_corridor(note_id: String) -> void:
 	for doorway_data in layout["doorways"]:
 		var doorway = DoorwayScene.instantiate()
 		var target_note = VaultDataBus.graph.get_note(doorway_data["target"])
-		var title := target_note.title if target_note else doorway_data["target"]
+		var title: String = target_note.title if target_note else doorway_data["target"]
 		doorway.setup(doorway_data["target"], title, true)
 		doorway.position = Vector3(doorway_data["position_x"], 0, doorway_data["position_z"])
 		add_child(doorway)
@@ -54,7 +54,7 @@ func build_corridor(note_id: String) -> void:
 	for door_data in layout["sealed_doors"]:
 		var doorway = DoorwayScene.instantiate()
 		var source_note = VaultDataBus.graph.get_note(door_data["source"])
-		var title := source_note.title if source_note else door_data["source"]
+		var title: String = source_note.title if source_note else door_data["source"]
 		doorway.setup(door_data["source"], title, false)
 		doorway.position = Vector3(door_data["position_x"], 0, door_data["position_z"])
 		doorway.rotation.y = PI
