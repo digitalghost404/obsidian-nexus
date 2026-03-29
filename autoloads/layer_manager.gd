@@ -23,16 +23,6 @@ const CAMERAS := {
 func load_layer(layer: Layer, context: Dictionary = {}) -> void:
 	var main_node: Node = get_tree().root.get_node("Main")
 
-	# Remove old scene and camera immediately (not queue_free)
-	if current_camera:
-		main_node.remove_child(current_camera)
-		current_camera.free()
-		current_camera = null
-	if current_scene:
-		main_node.remove_child(current_scene)
-		current_scene.free()
-		current_scene = null
-
 	# Load new scene
 	var scene_res = load(SCENES[layer])
 	if not scene_res:
@@ -50,11 +40,11 @@ func load_layer(layer: Layer, context: Dictionary = {}) -> void:
 	var cam_res = load(CAMERAS[layer])
 	var cam_instance = cam_res.instantiate()
 
-	# Add to tree — this triggers _ready on both
+	# Add NEW nodes first — new camera's _ready sets current=true
 	main_node.add_child(scene_instance)
 	main_node.add_child(cam_instance)
 
-	# Set camera position AFTER adding to tree
+	# Set camera position after adding to tree
 	if context.has("camera_position"):
 		cam_instance.global_position = context["camera_position"]
 	elif layer == Layer.GRAPH:
@@ -64,6 +54,12 @@ func load_layer(layer: Layer, context: Dictionary = {}) -> void:
 	elif layer == Layer.CORRIDOR:
 		cam_instance.position = Vector3(0, 1, 2)
 		cam_instance.rotation.y = PI
+
+	# NOW queue_free the old nodes — safe, deferred cleanup
+	if current_camera:
+		current_camera.queue_free()
+	if current_scene:
+		current_scene.queue_free()
 
 	current_scene = scene_instance
 	current_camera = cam_instance
@@ -75,7 +71,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed:
 		if event.keycode == KEY_SPACE:
 			if Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
-				return  # Don't switch layers when UI overlay is open
+				return
 			if current_layer == Layer.CITY:
 				load_layer(Layer.GRAPH)
 			elif current_layer == Layer.GRAPH:
