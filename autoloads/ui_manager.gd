@@ -1,7 +1,9 @@
 extends CanvasLayer
 
 var hover_panel: PanelContainer
+var note_viewer: Control
 var _crosshair: ColorRect
+var _viewer_open: bool = false
 
 func _ready() -> void:
 	layer = 5
@@ -14,17 +16,242 @@ func _ready() -> void:
 	_crosshair.position = -Vector2(2, 2)
 	add_child(_crosshair)
 
-	# Hover panel
+	# Hover panel (small tooltip)
 	hover_panel = _create_hover_panel()
 	add_child(hover_panel)
 	hover_panel.hide()
 
-	# Connect to InputManager signals
+	# Note viewer (full overlay)
+	note_viewer = _create_note_viewer()
+	add_child(note_viewer)
+	note_viewer.hide()
+
+	# Connect signals
 	InputManager.note_hovered.connect(_on_note_hovered)
 	InputManager.note_unhovered.connect(_on_note_unhovered)
 	InputManager.note_clicked.connect(_on_note_clicked)
 	InputManager.search_requested.connect(_on_search_requested)
 	InputManager.tag_filter_requested.connect(_on_tag_filter_requested)
+
+func _unhandled_input(event: InputEvent) -> void:
+	if _viewer_open and event is InputEventKey and event.pressed:
+		if event.keycode == KEY_ESCAPE or event.keycode == KEY_Q:
+			_close_viewer()
+			get_viewport().set_input_as_handled()
+
+# ============================================================
+# NOTE VIEWER — cyberpunk holographic overlay
+# ============================================================
+
+func _create_note_viewer() -> Control:
+	var root := Control.new()
+	root.name = "NoteViewer"
+	root.anchors_preset = Control.PRESET_FULL_RECT
+	root.mouse_filter = Control.MOUSE_FILTER_STOP
+
+	# Dark semi-transparent backdrop
+	var backdrop := ColorRect.new()
+	backdrop.name = "Backdrop"
+	backdrop.anchors_preset = Control.PRESET_FULL_RECT
+	backdrop.color = Color(0.0, 0.005, 0.02, 0.85)
+	root.add_child(backdrop)
+
+	# Main panel — centered, sized to 70% of screen
+	var panel := PanelContainer.new()
+	panel.name = "Panel"
+	panel.anchor_left = 0.15
+	panel.anchor_top = 0.05
+	panel.anchor_right = 0.85
+	panel.anchor_bottom = 0.95
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.015, 0.02, 0.05, 0.95)
+	style.border_color = Color(0.1, 0.2, 0.7, 0.6)
+	style.border_width_bottom = 2
+	style.border_width_top = 2
+	style.border_width_left = 2
+	style.border_width_right = 2
+	style.corner_radius_top_left = 3
+	style.corner_radius_top_right = 3
+	style.corner_radius_bottom_left = 3
+	style.corner_radius_bottom_right = 3
+	style.content_margin_left = 24
+	style.content_margin_right = 24
+	style.content_margin_top = 16
+	style.content_margin_bottom = 16
+	style.shadow_color = Color(0.05, 0.1, 0.4, 0.3)
+	style.shadow_size = 12
+	panel.add_theme_stylebox_override("panel", style)
+	root.add_child(panel)
+
+	var margin := MarginContainer.new()
+	margin.anchors_preset = Control.PRESET_FULL_RECT
+	panel.add_child(margin)
+
+	var vbox := VBoxContainer.new()
+	vbox.name = "Content"
+	vbox.add_theme_constant_override("separation", 8)
+	margin.add_child(vbox)
+
+	# Header row: title + close button
+	var header := HBoxContainer.new()
+	header.name = "Header"
+
+	var title := Label.new()
+	title.name = "Title"
+	title.add_theme_font_size_override("font_size", 28)
+	title.add_theme_color_override("font_color", Color(0.9, 0.7, 0.2))
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	header.add_child(title)
+
+	var close_btn := Button.new()
+	close_btn.name = "CloseBtn"
+	close_btn.text = " X "
+	close_btn.add_theme_font_size_override("font_size", 20)
+	close_btn.pressed.connect(_close_viewer)
+	header.add_child(close_btn)
+
+	vbox.add_child(header)
+
+	# Tags + connections row
+	var meta_row := HBoxContainer.new()
+	meta_row.name = "MetaRow"
+	meta_row.add_theme_constant_override("separation", 16)
+
+	var tags_label := Label.new()
+	tags_label.name = "Tags"
+	tags_label.add_theme_font_size_override("font_size", 13)
+	tags_label.add_theme_color_override("font_color", Color(0.4, 0.5, 0.85))
+	meta_row.add_child(tags_label)
+
+	var conn_label := Label.new()
+	conn_label.name = "Connections"
+	conn_label.add_theme_font_size_override("font_size", 13)
+	conn_label.add_theme_color_override("font_color", Color(0.3, 0.7, 0.8))
+	meta_row.add_child(conn_label)
+
+	var folder_label := Label.new()
+	folder_label.name = "Folder"
+	folder_label.add_theme_font_size_override("font_size", 13)
+	folder_label.add_theme_color_override("font_color", Color(0.5, 0.5, 0.6))
+	meta_row.add_child(folder_label)
+
+	vbox.add_child(meta_row)
+
+	# Separator line
+	var sep := HSeparator.new()
+	sep.add_theme_stylebox_override("separator", StyleBoxLine.new())
+	vbox.add_child(sep)
+
+	# Content area — scrollable
+	var scroll := ScrollContainer.new()
+	scroll.name = "Scroll"
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+
+	var content_text := RichTextLabel.new()
+	content_text.name = "Body"
+	content_text.bbcode_enabled = true
+	content_text.fit_content = true
+	content_text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	content_text.add_theme_font_size_override("normal_font_size", 15)
+	content_text.add_theme_font_size_override("bold_font_size", 16)
+	content_text.add_theme_color_override("default_color", Color(0.75, 0.78, 0.88))
+	scroll.add_child(content_text)
+
+	vbox.add_child(scroll)
+
+	# Links section
+	var links_sep := HSeparator.new()
+	links_sep.add_theme_stylebox_override("separator", StyleBoxLine.new())
+	vbox.add_child(links_sep)
+
+	var links_label := Label.new()
+	links_label.name = "LinksHeader"
+	links_label.text = "LINKED NOTES"
+	links_label.add_theme_font_size_override("font_size", 12)
+	links_label.add_theme_color_override("font_color", Color(0.5, 0.55, 0.7))
+	vbox.add_child(links_label)
+
+	var links_flow := FlowContainer.new()
+	links_flow.name = "Links"
+	links_flow.add_theme_constant_override("h_separation", 6)
+	links_flow.add_theme_constant_override("v_separation", 4)
+	links_flow.custom_minimum_size = Vector2(0, 40)
+	vbox.add_child(links_flow)
+
+	# Hint
+	var hint := Label.new()
+	hint.text = "Press ESC or Q to close"
+	hint.add_theme_font_size_override("font_size", 11)
+	hint.add_theme_color_override("font_color", Color(0.35, 0.35, 0.45))
+	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(hint)
+
+	return root
+
+func _open_viewer(note_id: String) -> void:
+	var note = VaultDataBus.graph.get_note(note_id)
+	if not note:
+		return
+
+	_viewer_open = true
+	hover_panel.hide()
+	_crosshair.hide()
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+
+	var panel: PanelContainer = note_viewer.get_node("Panel")
+	var content: VBoxContainer = panel.get_node("MarginContainer/Content")
+
+	# Title
+	content.get_node("Header/Title").text = note.title
+
+	# Meta
+	var tags_text: String = ", ".join(note.tags) if note.tags.size() > 0 else "no tags"
+	content.get_node("MetaRow/Tags").text = "Tags: %s" % tags_text
+	var conns: int = VaultDataBus.graph.get_connection_count(note_id)
+	content.get_node("MetaRow/Connections").text = "%d connections" % conns
+	content.get_node("MetaRow/Folder").text = note.folder if not note.folder.is_empty() else "root"
+
+	# Body content
+	var body: RichTextLabel = content.get_node("Scroll/Body")
+	body.text = note.content
+
+	# Links
+	var links_flow: FlowContainer = content.get_node("Links")
+	for child in links_flow.get_children():
+		child.queue_free()
+
+	var all_links: Array = note.outgoing_links
+	var back_links: Array = VaultDataBus.graph.get_backlinks(note_id)
+
+	for link_id in all_links:
+		var linked_note = VaultDataBus.graph.get_note(link_id)
+		var btn := Button.new()
+		btn.text = linked_note.title if linked_note else link_id
+		btn.add_theme_font_size_override("font_size", 12)
+		btn.add_theme_color_override("font_color", Color(0.3, 0.6, 0.95))
+		btn.pressed.connect(func(): _open_viewer(link_id))
+		links_flow.add_child(btn)
+
+	for link_id in back_links:
+		var linked_note = VaultDataBus.graph.get_note(link_id)
+		var btn := Button.new()
+		btn.text = "<< %s" % (linked_note.title if linked_note else link_id)
+		btn.add_theme_font_size_override("font_size", 12)
+		btn.add_theme_color_override("font_color", Color(0.6, 0.4, 0.3))
+		btn.pressed.connect(func(): _open_viewer(link_id))
+		links_flow.add_child(btn)
+
+	note_viewer.show()
+
+func _close_viewer() -> void:
+	_viewer_open = false
+	note_viewer.hide()
+	_crosshair.show()
+	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+# ============================================================
+# HOVER PANEL (small tooltip)
+# ============================================================
 
 func _create_hover_panel() -> PanelContainer:
 	var panel := PanelContainer.new()
@@ -78,7 +305,13 @@ func _create_hover_panel() -> PanelContainer:
 	panel.add_child(vbox)
 	return panel
 
+# ============================================================
+# SIGNAL HANDLERS
+# ============================================================
+
 func _on_note_hovered(note_id: String) -> void:
+	if _viewer_open:
+		return
 	var note = VaultDataBus.graph.get_note(note_id)
 	if not note:
 		hover_panel.hide()
@@ -98,17 +331,16 @@ func _on_note_hovered(note_id: String) -> void:
 	hover_panel.show()
 
 func _on_note_unhovered() -> void:
+	if _viewer_open:
+		return
 	hover_panel.hide()
 
 func _on_note_clicked(note_id: String) -> void:
-	if LayerManager.current_layer != LayerManager.Layer.CORRIDOR:
-		LayerManager.transition_to(LayerManager.Layer.CORRIDOR, {"note_id": note_id})
-	else:
-		var corridor = LayerManager.current_scene
-		if corridor and corridor.has_method("build_corridor"):
-			corridor.build_corridor(note_id)
+	_open_viewer(note_id)
 
 func _on_search_requested() -> void:
+	if _viewer_open:
+		return
 	var search_dialog := AcceptDialog.new()
 	search_dialog.title = "Search Vault"
 	var line_edit := LineEdit.new()
@@ -131,6 +363,8 @@ func _on_search_requested() -> void:
 	)
 
 func _on_tag_filter_requested() -> void:
+	if _viewer_open:
+		return
 	var tag_dialog := AcceptDialog.new()
 	tag_dialog.title = "Filter by Tag"
 	var option := OptionButton.new()
