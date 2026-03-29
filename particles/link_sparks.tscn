@@ -1,0 +1,21 @@
+[gd_scene load_steps=3 format=3]
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_1"]
+direction = Vector3(1, 0.3, 0)
+spread = 15.0
+initial_velocity_min = 2.0
+initial_velocity_max = 4.0
+gravity = Vector3(0, -1.0, 0)
+scale_min = 0.005
+scale_max = 0.015
+color = Color(0.4, 0.6, 1, 0.9)
+
+[sub_resource type="SphereMesh" id="SphereMesh_1"]
+radius = 0.01
+height = 0.02
+
+[node name="LinkSparks" type="GPUParticles3D"]
+amount = 100
+lifetime = 1.5
+process_material = SubResource("ParticleProcessMaterial_1")
+draw_pass_1 = SubResource("SphereMesh_1")

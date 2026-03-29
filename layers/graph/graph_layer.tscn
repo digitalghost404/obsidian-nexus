@@ -1,0 +1,32 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://layers/graph/graph_layer.gd" id="1"]
+
+[sub_resource type="Environment" id="Environment_1"]
+background_mode = 1
+background_color = Color(0.024, 0.039, 0.086, 1)
+ambient_light_source = 2
+ambient_light_color = Color(0.102, 0.125, 0.314, 1)
+ambient_light_energy = 0.15
+glow_enabled = true
+glow_intensity = 0.8
+glow_bloom = 0.3
+glow_hdr_threshold = 0.8
+glow_blend_mode = 1
+volumetric_fog_enabled = true
+volumetric_fog_density = 0.003
+volumetric_fog_albedo = Color(0.039, 0.063, 0.188, 1)
+ssao_enabled = true
+ssao_radius = 3.0
+ssao_intensity = 2.0
+
+[node name="GraphLayer" type="Node3D"]
+script = ExtResource("1")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_1")
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.866, -0.25, 0.433, 0, 0.866, 0.5, -0.5, -0.433, 0.75, 0, 50, 0)
+light_color = Color(0.3, 0.35, 0.6, 1)
+light_energy = 0.3
