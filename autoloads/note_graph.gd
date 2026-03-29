@@ -10,6 +10,8 @@ var _notes: Dictionary = {}
 var _backlinks: Dictionary = {}
 # tag → Array[String] of note IDs
 var _tag_index: Dictionary = {}
+# note_id → Vector3
+var _positions: Dictionary = {}
 
 signal note_added(note_id: String)
 signal note_updated(note_id: String)
@@ -113,6 +115,68 @@ func clear() -> void:
 	_notes.clear()
 	_backlinks.clear()
 	_tag_index.clear()
+	_positions.clear()
+
+func compute_layout(iterations: int = 500) -> void:
+	var note_ids := get_all_note_ids()
+	for nid in note_ids:
+		if not _positions.has(nid):
+			_positions[nid] = Vector3(
+				randf_range(-50.0, 50.0),
+				randf_range(-50.0, 50.0),
+				randf_range(-50.0, 50.0)
+			)
+
+	var repulsion_strength := 500.0
+	var attraction_strength := 0.01
+	var damping := 0.9
+	var velocities: Dictionary = {}
+	for nid in note_ids:
+		velocities[nid] = Vector3.ZERO
+
+	for iteration in range(iterations):
+		var temperature := 1.0 - (float(iteration) / float(iterations))
+		var forces: Dictionary = {}
+		for nid in note_ids:
+			forces[nid] = Vector3.ZERO
+
+		# Repulsion between all pairs
+		for i in range(note_ids.size()):
+			for j in range(i + 1, note_ids.size()):
+				var id_a: String = note_ids[i]
+				var id_b: String = note_ids[j]
+				var delta: Vector3 = _positions[id_a] - _positions[id_b]
+				var dist := delta.length()
+				if dist < 0.1:
+					delta = Vector3(randf_range(-1, 1), randf_range(-1, 1), randf_range(-1, 1))
+					dist = delta.length()
+				var force := delta.normalized() * (repulsion_strength / (dist * dist))
+				forces[id_a] += force
+				forces[id_b] -= force
+
+		# Attraction along edges
+		for nid in note_ids:
+			var note: VaultParser.NoteData = _notes.get(nid)
+			if not note:
+				continue
+			for link in note.outgoing_links:
+				if _positions.has(link):
+					var delta: Vector3 = _positions[link] - _positions[nid]
+					var force := delta * attraction_strength
+					forces[nid] += force
+					if forces.has(link):
+						forces[link] -= force
+
+		# Apply forces with damping
+		for nid in note_ids:
+			velocities[nid] = (velocities[nid] + forces[nid]) * damping * temperature
+			_positions[nid] += velocities[nid]
+
+func get_position(note_id: String) -> Vector3:
+	return _positions.get(note_id, Vector3.ZERO)
+
+func set_position(note_id: String, pos: Vector3) -> void:
+	_positions[note_id] = pos
 
 func to_cache_dict() -> Dictionary:
 	var data := {}
@@ -126,6 +190,7 @@ func to_cache_dict() -> Dictionary:
 			"outgoing_links": note.outgoing_links,
 			"word_count": note.word_count,
 			"last_modified": note.last_modified,
+			"position": var_to_str(_positions.get(note_id, Vector3.ZERO)),
 		}
 	return data
 
@@ -143,5 +208,7 @@ func from_cache_dict(data: Dictionary) -> void:
 		note.word_count = d.get("word_count", 0)
 		note.last_modified = d.get("last_modified", 0)
 		add_note(note)
+		if d.has("position"):
+			_positions[note_id] = str_to_var(d["position"])
 	compute_backlinks()
 	graph_rebuilt.emit()
