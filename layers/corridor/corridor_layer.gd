@@ -36,9 +36,10 @@ func build_corridor(note_id: String) -> void:
 	])
 	print("Corridor: total_length=%.1f, first segment z=%.1f" % [layout["total_length"], layout["segments"][0]["position_z"]])
 
-	_build_hallway_geometry(layout)
+	# DEBUG: skip all panels/doorways — just geometry + debug objects
+	# _build_hallway_geometry(layout)
 
-	# DEBUG: bright test cube and light so we can see if ANYTHING renders
+	# Just a bright cube and light — absolute minimum
 	var debug_cube := MeshInstance3D.new()
 	var debug_mesh := BoxMesh.new()
 	debug_mesh.size = Vector3(1, 1, 1)
@@ -47,9 +48,6 @@ func build_corridor(note_id: String) -> void:
 	var debug_mat := StandardMaterial3D.new()
 	debug_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	debug_mat.albedo_color = Color(1, 0, 0)
-	debug_mat.emission_enabled = true
-	debug_mat.emission = Color(1, 0, 0)
-	debug_mat.emission_energy_multiplier = 5.0
 	debug_cube.set_surface_override_material(0, debug_mat)
 	add_child(debug_cube)
 
@@ -57,36 +55,10 @@ func build_corridor(note_id: String) -> void:
 	debug_light.light_color = Color(1, 1, 1)
 	debug_light.light_energy = 10.0
 	debug_light.omni_range = 30.0
-	debug_light.position = Vector3(0, 2, 4)
+	debug_light.position = Vector3(0, 3, 4)
 	add_child(debug_light)
-	print("Corridor: DEBUG cube at (0, 1.5, 4), light at (0, 2, 4)")
 
-	# Place wall panels
-	for panel_data in layout["wall_panels"]:
-		var panel = WallPanelScene.instantiate()
-		panel.setup(panel_data["text"], panel_data["side"], panel_data["position_z"])
-		add_child(panel)
-
-	# Place outgoing doorways
-	for doorway_data in layout["doorways"]:
-		var doorway = DoorwayScene.instantiate()
-		var target_note = VaultDataBus.graph.get_note(doorway_data["target"])
-		var title: String = target_note.title if target_note else doorway_data["target"]
-		doorway.setup(doorway_data["target"], title, true)
-		doorway.position = Vector3(doorway_data["position_x"], 0, doorway_data["position_z"])
-		add_child(doorway)
-
-	# Place sealed doors (backlinks)
-	for door_data in layout["sealed_doors"]:
-		var doorway = DoorwayScene.instantiate()
-		var source_note = VaultDataBus.graph.get_note(door_data["source"])
-		var title: String = source_note.title if source_note else door_data["source"]
-		doorway.setup(door_data["source"], title, false)
-		doorway.position = Vector3(door_data["position_x"], 0, door_data["position_z"])
-		doorway.rotation.y = PI
-		add_child(doorway)
-
-	_connect_doorway_signals()
+	print("Corridor: MINIMAL DEBUG — just red cube at (0,1.5,4) + light, children=%d" % get_child_count())
 
 func _build_hallway_geometry(layout: Dictionary) -> void:
 	for seg in layout["segments"]:
