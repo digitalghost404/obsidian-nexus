@@ -115,6 +115,24 @@ static func build_tower(note: VaultParser.NoteData, connection_count: int, posit
 		light.position = Vector3(position_2d.x, height * 0.6, position_2d.y)
 		root.add_child(light)
 
+	# ---- HOLOGRAM READOUT: floating data panel above important towers ----
+	if connection_count >= 5:
+		var holo_shader = load("res://shaders/wall_schematic.gdshader")
+		if holo_shader:
+			var holo := MeshInstance3D.new()
+			var holo_mesh := BoxMesh.new()
+			holo_mesh.size = Vector3(width * 1.2, width * 0.6, 0.02)
+			holo.mesh = holo_mesh
+			holo.position = Vector3(position_2d.x, height + 1.5, position_2d.y)
+			holo.rotation.y = randf() * PI
+			var holo_mat := ShaderMaterial.new()
+			holo_mat.shader = holo_shader
+			holo_mat.set_shader_parameter("emission_strength", 1.8)
+			holo_mat.set_shader_parameter("panel_scale", 2.0)
+			holo_mat.set_shader_parameter("scroll_speed", 0.06)
+			holo.set_surface_override_material(0, holo_mat)
+			root.add_child(holo)
+
 	# ---- COLLISION ----
 	var body := StaticBody3D.new()
 	body.position = Vector3(position_2d.x, height / 2.0, position_2d.y)

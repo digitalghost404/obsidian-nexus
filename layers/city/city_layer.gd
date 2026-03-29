@@ -186,6 +186,52 @@ func _build_city() -> void:
 			motes.position = mpos
 			add_child(motes)
 
+	# Additional ambient mote emitters spread across the city (expands total from 4 to 12)
+	var extra_mote_positions: Array[Vector3] = [
+		Vector3(city_size.x * 0.1, 7.0, city_size.y * 0.6),
+		Vector3(city_size.x * 0.3, 9.0, city_size.y * 0.85),
+		Vector3(city_size.x * 0.6, 6.0, city_size.y * 0.1),
+		Vector3(city_size.x * 0.75, 8.0, city_size.y * 0.45),
+		Vector3(city_size.x * 0.9, 5.0, city_size.y * 0.8),
+		Vector3(city_size.x * 0.15, 11.0, city_size.y * 0.4),
+		Vector3(city_size.x * 0.45, 7.0, city_size.y * 0.65),
+		Vector3(city_size.x * 0.65, 9.5, city_size.y * 0.25),
+	]
+	if motes_scene:
+		for mpos in extra_mote_positions:
+			var motes: Node3D = motes_scene.instantiate()
+			motes.position = mpos
+			add_child(motes)
+
+	# Dense ground-level data particles — everywhere in the streets
+	for gx in range(4):
+		for gz in range(4):
+			var ground_particles := GPUParticles3D.new()
+			ground_particles.amount = 80
+			ground_particles.lifetime = 6.0
+			ground_particles.position = Vector3(
+				city_size.x * 0.1 + city_size.x * 0.2 * float(gx),
+				1.5,
+				city_size.y * 0.1 + city_size.y * 0.2 * float(gz)
+			)
+			var gp_mat := ParticleProcessMaterial.new()
+			gp_mat.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
+			gp_mat.emission_box_extents = Vector3(12, 2, 12)
+			gp_mat.direction = Vector3(0, 0.1, 0)
+			gp_mat.spread = 180.0
+			gp_mat.initial_velocity_min = 0.05
+			gp_mat.initial_velocity_max = 0.3
+			gp_mat.gravity = Vector3(0, 0, 0)
+			gp_mat.scale_min = 0.01
+			gp_mat.scale_max = 0.04
+			gp_mat.color = Color(0.1, 0.2, 0.7, 0.4)
+			ground_particles.process_material = gp_mat
+			var gp_draw := SphereMesh.new()
+			gp_draw.radius = 0.02
+			gp_draw.height = 0.04
+			ground_particles.draw_pass_1 = gp_draw
+			add_child(ground_particles)
+
 	# Ember particles near center
 	var ember_scene: PackedScene = load("res://particles/ember_rise.tscn") as PackedScene
 	if ember_scene:
@@ -249,37 +295,40 @@ func _build_city() -> void:
 	upper_fog.material = upper_fog_mat
 	add_child(upper_fog)
 
-	# Overhead data stream lines — thin glowing horizontal beams at height
-	# Creates the illusion of data flowing through the sky above
-	var stream_mat := StandardMaterial3D.new()
-	stream_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	stream_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	for i in range(20):
-		var stream := MeshInstance3D.new()
-		var smesh := BoxMesh.new()
-		var length := 30.0 + randf() * 80.0
-		smesh.size = Vector3(length, 0.04, 0.04)
-		stream.mesh = smesh
-		stream.position = Vector3(
+	# Overhead data streams — animated lines of light flowing across the sky
+	for i in range(30):
+		var stream_particles := GPUParticles3D.new()
+		stream_particles.amount = 40
+		stream_particles.lifetime = 4.0
+		stream_particles.position = Vector3(
 			randf() * city_size.x,
-			15.0 + randf() * 20.0,
+			18.0 + randf() * 15.0,
 			randf() * city_size.y
 		)
-		stream.rotation.y = randf() * PI
-		var smat := stream_mat.duplicate()
-		var is_accent := randf() > 0.75
+		var sp_mat := ParticleProcessMaterial.new()
+		sp_mat.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
+		sp_mat.emission_box_extents = Vector3(0.1, 0.1, 0.1)
+		var angle := randf() * PI * 2.0
+		sp_mat.direction = Vector3(cos(angle), 0, sin(angle))
+		sp_mat.spread = 5.0
+		sp_mat.initial_velocity_min = 8.0
+		sp_mat.initial_velocity_max = 15.0
+		sp_mat.gravity = Vector3(0, 0, 0)
+		sp_mat.scale_min = 0.02
+		sp_mat.scale_max = 0.05
+		var is_accent := randf() > 0.7
 		if is_accent:
-			smat.albedo_color = Color(0.8, 0.35, 0.05, 0.25)
-			smat.emission_enabled = true
-			smat.emission = Color(0.7, 0.3, 0.05)
-			smat.emission_energy_multiplier = 2.0
+			sp_mat.color = Color(0.8, 0.35, 0.05, 0.7)
 		else:
-			smat.albedo_color = Color(0.08, 0.2, 0.6, 0.2)
-			smat.emission_enabled = true
-			smat.emission = Color(0.06, 0.15, 0.5)
-			smat.emission_energy_multiplier = 1.5
-		stream.set_surface_override_material(0, smat)
-		add_child(stream)
+			sp_mat.color = Color(0.1, 0.25, 0.7, 0.6)
+		stream_particles.process_material = sp_mat
+		var sp_draw := SphereMesh.new()
+		sp_draw.radius = 0.03
+		sp_draw.height = 0.06
+		stream_particles.draw_pass_1 = sp_draw
+		stream_particles.trail_enabled = true
+		stream_particles.trail_lifetime = 0.3
+		add_child(stream_particles)
 
 	# Build link beams
 	var beam_renderer_script: GDScript = load("res://layers/city/city_beam_renderer.gd") as GDScript

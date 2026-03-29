@@ -8,11 +8,11 @@ void sky() {
     // Base gradient — deep blue at zenith, brighter blue-purple at horizon
     float h = 1.0 - abs(elevation);
     h = pow(max(h, 0.0), 0.5);
-    vec3 sky = mix(vec3(0.01, 0.015, 0.04), vec3(0.06, 0.08, 0.25), h);
+    vec3 sky = mix(vec3(0.006, 0.009, 0.025), vec3(0.035, 0.05, 0.16), h);
 
     // Warm horizon glow band
     float glow = exp(-abs(elevation) * 8.0);
-    sky += vec3(0.08, 0.04, 0.15) * glow;
+    sky += vec3(0.05, 0.025, 0.1) * glow;
 
     // Orange accent on one side
     float side = exp(-abs(elevation) * 6.0) * max(0.0, cos(azimuth)) * 0.2;

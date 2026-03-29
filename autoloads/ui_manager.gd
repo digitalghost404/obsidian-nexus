@@ -23,11 +23,27 @@ func _ready() -> void:
 	add_child(note_viewer)
 	note_viewer.hide()
 
+	# Minimap
+	_create_minimap()
+
 	InputManager.note_hovered.connect(_on_note_hovered)
 	InputManager.note_unhovered.connect(_on_note_unhovered)
 	InputManager.note_clicked.connect(_on_note_clicked)
 	InputManager.search_requested.connect(_on_search_requested)
 	InputManager.tag_filter_requested.connect(_on_tag_filter_requested)
+
+func _process(_delta: float) -> void:
+	# Update minimap player position
+	var minimap = get_node_or_null("Minimap")
+	if minimap and not _viewer_open:
+		var cam = get_viewport().get_camera_3d()
+		if cam:
+			var player_dot = minimap.get_node_or_null("PlayerDot")
+			if player_dot:
+				var city_size := 120.0
+				var map_x: float = (cam.global_position.x / city_size) * 150.0
+				var map_z: float = (cam.global_position.z / city_size) * 150.0
+				player_dot.position = Vector2(clampf(map_x - 3, 0, 144), clampf(map_z - 3, 0, 144))
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed:
@@ -39,6 +55,36 @@ func _unhandled_input(event: InputEvent) -> void:
 			if not _viewer_open:
 				_on_search_requested()
 				get_viewport().set_input_as_handled()
+
+func _create_minimap() -> void:
+	var minimap := ColorRect.new()
+	minimap.name = "Minimap"
+	minimap.size = Vector2(150, 150)
+	minimap.position = Vector2(15, get_viewport().get_visible_rect().size.y - 165)
+	minimap.color = Color(0.01, 0.015, 0.04, 0.7)
+	add_child(minimap)
+
+	# Border
+	var border := ColorRect.new()
+	border.size = Vector2(152, 152)
+	border.position = minimap.position - Vector2(1, 1)
+	border.color = Color(0.06, 0.12, 0.4, 0.5)
+	border.z_index = -1
+	add_child(border)
+
+	# Player dot (updates in _process)
+	var player_dot := ColorRect.new()
+	player_dot.name = "PlayerDot"
+	player_dot.size = Vector2(6, 6)
+	player_dot.color = Color(1, 1, 1, 0.9)
+	minimap.add_child(player_dot)
+
+	# Hub dot (static center)
+	var hub_dot := ColorRect.new()
+	hub_dot.size = Vector2(8, 8)
+	hub_dot.color = Color(0.3, 0.5, 1.0, 0.8)
+	hub_dot.position = Vector2(71, 71) # Center of 150x150 minimap
+	minimap.add_child(hub_dot)
 
 # ============================================================
 # NOTE VIEWER — cyberpunk holographic overlay
